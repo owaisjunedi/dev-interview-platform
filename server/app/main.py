@@ -52,6 +52,7 @@ class Session(BaseModel):
     status: str
     language: str
     notes: Optional[str] = None
+    startTime: Optional[str] = None
 
 class ExecuteRequest(BaseModel):
     code: str
@@ -258,12 +259,15 @@ async def disconnect(sid):
         del sid_map[sid]
         
         if room_id in room_users and user_id in room_users[room_id]:
-            del room_users[room_id][user_id]
-            
-            # Broadcast updated user list
-            users_list = list(room_users[room_id].values())
-            await sio.emit('room_users', {'users': users_list}, room=room_id)
-            await sio.emit('user_left', {'userId': user_id}, room=room_id)
+            # Only remove if this sid matches the user's current sid
+            # This handles the case where a user refreshes (new sid joins before old sid leaves)
+            if room_users[room_id][user_id].get('sid') == sid:
+                del room_users[room_id][user_id]
+                
+                # Broadcast updated user list
+                users_list = list(room_users[room_id].values())
+                await sio.emit('room_users', {'users': users_list}, room=room_id)
+                await sio.emit('user_left', {'userId': user_id}, room=room_id)
 
 @sio.event
 async def join_room(sid, data):
@@ -280,6 +284,15 @@ async def join_room(sid, data):
     user['sid'] = sid
     room_users[room_id][user['id']] = user
     sid_map[sid] = (room_id, user['id'])
+    
+    # Start timer if not started
+    if room_id in sessions_db:
+        session = sessions_db[room_id]
+        if session.startTime is None:
+            session.startTime = datetime.datetime.now().isoformat()
+            # Broadcast session update or just let clients fetch it?
+            # Better to emit an event so clients update timer immediately
+            await sio.emit('session_updated', session.dict(), room=room_id)
     
     # Broadcast updated user list to EVERYONE in the room
     users_list = list(room_users[room_id].values())

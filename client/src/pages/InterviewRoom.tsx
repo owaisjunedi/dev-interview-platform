@@ -168,8 +168,13 @@ export default function InterviewRoom() {
         if (session) {
           if (session.notes) setAdminNotes(session.notes);
           if (session.score !== null && session.score !== undefined) setSessionScore(session.score.toString());
-          if (session.language) setLanguage(session.language);
-          // We could also set code if we saved it in the session, but currently we don't save code text in session model
+          if (session.language) {
+            setLanguage(session.language);
+            // Only set default code if current code is the default python one (initial state)
+            if (code === DEFAULT_CODE.python) {
+              setCode(DEFAULT_CODE[session.language] || DEFAULT_CODE.python);
+            }
+          }
         }
       } catch (error) {
         console.error('Failed to fetch session:', error);
@@ -184,34 +189,50 @@ export default function InterviewRoom() {
   const userId = user?.id || localStorage.getItem('candidate_session') || 'guest';
   const userName = user?.name || localStorage.getItem('candidate_name') || 'Guest';
 
+  const handleCodeChange = useCallback((newCode: string, newLang: string) => {
+    if (newCode !== code) {
+      isRemoteUpdate.current = true;
+      setCode(newCode);
+    }
+    if (newLang !== language) {
+      isRemoteUpdate.current = true;
+      setLanguage(newLang);
+    }
+  }, [code, language]);
+
+  const handleCustomQuestion = useCallback((data: any) => {
+    if (data.question) {
+      setSelectedQuestion(data.question);
+      setLeftTab('question');
+      toast.info('New question set by interviewer');
+    }
+  }, []);
+
+  const handleExecutionResult = useCallback((data: any) => {
+    if (data.output || data.error) {
+      setOutput(data.error ? `Error:\n${data.error}` : data.output);
+      setRightTab('console');
+    }
+  }, []);
+
+  const handleSessionUpdated = useCallback((session: any) => {
+    if (session.startTime) {
+      const start = new Date(session.startTime).getTime();
+      const now = Date.now();
+      const diff = Math.floor((now - start) / 1000);
+      setElapsedTime(diff > 0 ? diff : 0);
+    }
+  }, []);
+
   const { isConnected, connectedUsers, emitCodeChange, emitCustomQuestion, emitExecutionResult } = useSocket({
     sessionId: sessionId || '',
     userId,
     userName,
     role,
-    onCodeChange: (newCode, newLang) => {
-      if (newCode !== code) {
-        isRemoteUpdate.current = true;
-        setCode(newCode);
-      }
-      if (newLang !== language) {
-        isRemoteUpdate.current = true;
-        setLanguage(newLang);
-      }
-    },
-    onCustomQuestion: (data: any) => {
-      if (data.question) {
-        setSelectedQuestion(data.question);
-        setLeftTab('question');
-        toast.info('New question set by interviewer');
-      }
-    },
-    onExecutionResult: (data: any) => {
-      if (data.output || data.error) {
-        setOutput(data.error ? `Error:\n${data.error}` : data.output);
-        setRightTab('console');
-      }
-    }
+    onCodeChange: handleCodeChange,
+    onCustomQuestion: handleCustomQuestion,
+    onExecutionResult: handleExecutionResult,
+    onSessionUpdated: handleSessionUpdated
   });
 
   // Timer effect
@@ -220,11 +241,15 @@ export default function InterviewRoom() {
     const updateTimer = () => {
       if (!sessionId) return;
       getSession(sessionId).then(session => {
-        if (session && session.date) {
-          const start = new Date(session.date).getTime();
-          const now = Date.now();
-          const diff = Math.floor((now - start) / 1000);
-          setElapsedTime(diff > 0 ? diff : 0);
+        if (session) {
+          if (session.startTime) {
+            const start = new Date(session.startTime).getTime();
+            const now = Date.now();
+            const diff = Math.floor((now - start) / 1000);
+            setElapsedTime(diff > 0 ? diff : 0);
+          } else {
+            setElapsedTime(0);
+          }
         }
       });
     };
@@ -387,7 +412,7 @@ export default function InterviewRoom() {
     try {
       await updateSession(sessionId, {
         notes: adminNotes,
-        score: sessionScore ? parseInt(sessionScore) : undefined
+        score: sessionScore && !isNaN(parseInt(sessionScore)) ? parseInt(sessionScore) : undefined
       });
       toast.success('Session details saved');
     } catch (error) {
@@ -539,7 +564,7 @@ export default function InterviewRoom() {
                     {selectedQuestion ? (
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                          <Badge className={getDifficultyColor(selectedQuestion.difficulty)}>
+                          <Badge variant="outline" className={getDifficultyColor(selectedQuestion.difficulty)}>
                             {selectedQuestion.difficulty}
                           </Badge>
                           <Badge variant="outline">{selectedQuestion.category}</Badge>

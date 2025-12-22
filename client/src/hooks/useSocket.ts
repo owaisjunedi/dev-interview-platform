@@ -15,26 +15,28 @@ interface ConnectedUser {
   isActive: boolean;
 }
 
-interface UseSocketOptions {
+interface UseSocketProps {
   sessionId: string;
   userId: string;
   userName: string;
   role: 'interviewer' | 'candidate';
   onCodeChange?: (code: string, language: string) => void;
-  onWhiteboardUpdate?: (data: unknown) => void;
-  onCustomQuestion?: (data: unknown) => void;
-  onExecutionResult?: (data: unknown) => void;
+  onWhiteboardUpdate?: (data: any) => void;
+  onCustomQuestion?: (data: any) => void;
+  onExecutionResult?: (data: any) => void;
+  onSessionUpdated?: (session: any) => void;
 }
 
 // Initialize socket outside component to prevent multiple connections
 let socket: Socket | null = null;
 
-export function useSocket({ sessionId, userId, userName, role, onCodeChange, onWhiteboardUpdate, onCustomQuestion, onExecutionResult }: UseSocketOptions) {
+export function useSocket({ sessionId, userId, userName, role, onCodeChange, onWhiteboardUpdate, onCustomQuestion, onExecutionResult, onSessionUpdated }: UseSocketProps) {
   const [isConnected, setIsConnected] = useState(false);
-  const [connectedUsers, setConnectedUsers] = useState<ConnectedUser[]>([]);
-  const lastEmitRef = useRef<number>(0);
+  const [connectedUsers, setConnectedUsers] = useState<any[]>([]);
 
   useEffect(() => {
+    if (!sessionId) return;
+
     if (!socket) {
       // Connect to the backend server (proxy handles /ws or direct URL)
       // Using relative path to leverage Vite proxy in dev and same-origin in prod
@@ -43,10 +45,6 @@ export function useSocket({ sessionId, userId, userName, role, onCodeChange, onW
         transports: ['websocket'],
         autoConnect: false,
       });
-    }
-
-    if (!socket.connected) {
-      socket.connect();
     }
 
     function onConnect() {
@@ -84,17 +82,23 @@ export function useSocket({ sessionId, userId, userName, role, onCodeChange, onW
       if (onCodeChange) onCodeChange(data.code, data.language);
     }
 
-    function onWhiteboardUpdateEvent(data: unknown) {
+    function onWhiteboardUpdateEvent(data: any) {
       if (onWhiteboardUpdate) onWhiteboardUpdate(data);
     }
 
-    function onCustomQuestionEvent(data: unknown) {
+    function onCustomQuestionEvent(data: any) {
       if (onCustomQuestion) onCustomQuestion(data);
     }
 
-    function onExecutionResultEvent(data: unknown) {
+    function onExecutionResultEvent(data: any) {
       if (onExecutionResult) onExecutionResult(data);
     }
+
+    const onSessionUpdatedEvent = (data: any) => {
+      if (onSessionUpdated) {
+        onSessionUpdated(data);
+      }
+    };
 
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
@@ -105,6 +109,7 @@ export function useSocket({ sessionId, userId, userName, role, onCodeChange, onW
     socket.on('whiteboard_update', onWhiteboardUpdateEvent);
     socket.on('custom_question', onCustomQuestionEvent);
     socket.on('execution_result', onExecutionResultEvent);
+    socket.on('session_updated', onSessionUpdatedEvent);
 
     // Initial join if already connected
     if (socket.connected) {
@@ -123,13 +128,14 @@ export function useSocket({ sessionId, userId, userName, role, onCodeChange, onW
       socket?.off('whiteboard_update', onWhiteboardUpdateEvent);
       socket?.off('custom_question', onCustomQuestionEvent);
       socket?.off('execution_result', onExecutionResultEvent);
+      socket?.off('session_updated', onSessionUpdatedEvent);
 
       // Only leave room, don't disconnect socket to keep it alive for other components if needed
       // But for this app, we can disconnect to be safe and clean
       // socket?.emit('leave_room', { roomId: sessionId, userId });
       // socket?.disconnect();
     };
-  }, [sessionId, userId, userName, role, onCodeChange, onWhiteboardUpdate, onCustomQuestion, onExecutionResult]);
+  }, [sessionId, userId, userName, role, onCodeChange, onWhiteboardUpdate, onCustomQuestion, onExecutionResult, onSessionUpdated]);
 
   const emit = useCallback((type: string, payload: unknown) => {
     if (!socket?.connected) return;

@@ -12,14 +12,14 @@ import {
 } from 'tldraw';
 
 // We need to access the editor instance to sync changes
-function WhiteboardEditor({ onMount }: { onMount: (editor: Editor) => void }) {
+function WhiteboardEditor({ onMount, sessionId }: { onMount: (editor: Editor) => void, sessionId: string }) {
   const handleMount = (editor: Editor) => {
     onMount(editor);
   };
 
   return (
     <div className="tldraw__editor w-full h-full">
-      <Tldraw onMount={handleMount} persistenceKey="devinterview-whiteboard" />
+      <Tldraw onMount={handleMount} persistenceKey={`devinterview-whiteboard-${sessionId}`} />
     </div>
   );
 }
@@ -105,7 +105,7 @@ export function Whiteboard() {
         </div>
       </div>
     }>
-      <WhiteboardEditor onMount={setEditor} />
+      <WhiteboardEditor onMount={setEditor} sessionId={sessionId || 'demo'} />
     </Suspense>
   );
 }
