@@ -1,0 +1,23 @@
+[project]
+name = "server"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "asyncpg>=0.31.0",
+    "bcrypt>=5.0.0",
+    "fastapi>=0.127.0",
+    "httpx>=0.28.1",
+    "openai>=2.14.0",
+    "passlib>=1.7.4",
+    "pydantic-settings>=2.12.0",
+    "pyjwt>=2.10.1",
+    "pytest>=9.0.2",
+    "python-jose>=3.5.0",
+    "python-multipart>=0.0.21",
+    "python-socketio[asyncio]>=5.15.1",
+    "requests>=2.32.5",
+    "sqlalchemy>=2.0.45",
+    "uvicorn>=0.40.0",
+]
