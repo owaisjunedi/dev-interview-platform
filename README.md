@@ -1,113 +1,62 @@
-# CodeSync-AI
+# DevInterview.io
 
-An end-to-end real-time collaborative technical interview platform powered by AI.
+A real-time collaborative coding interview platform with browser-based execution and interview helper tools.
 
 ## Features
-- 🚀 **Real-time Collaboration:** Live coding (Monaco Editor) and Whiteboard (Tldraw).
-- 🧠 **AI Copilot for Interviewers:** Real-time code analysis, bug detection, and interview question suggestions.
-- ⚡ **Browser-based Execution:** Code runs safely in the browser using WASM (Pyodide for Python).
-- 🔐 **Admin Dashboard:** Interviewers can view session history, logs, and grading notes.
-- 🎨 **Modern UI:** Dark/Light themes, smooth animations.
+- ⚡ **Real-time Collaboration:** Sync code and whiteboard (Tldraw) instantly.
+- 🏃 **Browser-Based Execution:** Run Python (Pyodide) and JS (Web Workers) safely on the client.
+- 🧑‍💻 **Multi-language Support:** Syntax highlighting for C++, Java, Go, Python, JS.
+- 📋 **Interviewer Tools:** - "Top 10 Questions" generator (Role/Language based).
+  - Session history and grading.
+  - One-click session termination.
+- 🤖 **Automated Insights:** Basic code analysis and suggestions.
 
-## Architecture
-- **Frontend:** React, Vite, Tailwind, Zustand (State), Monaco Editor.
-- **Backend:** Python FastAPI, Socket.io, PostgreSQL, SQLAlchemy.
-- **Deployment:** Docker container on Render.
-
-## Prerequisites
-- Node.js v18+
-- Python 3.10+
-- `uv` (Python dependency manager)
-- Docker
+## Tech Stack
+- **Frontend:** React, Vite, Tailwind, Zustand, Monaco Editor.
+- **Backend:** FastAPI (Python), Socket.io, PostgreSQL.
+- **Deployment:** Docker (Render).
 
 ## Getting Started
 
 ### 1. Installation
-Install root dependencies (for running concurrently):
 ```bash
-npm install
+npm install # Installs root dependencies (concurrently)
 
-```
+# Frontend
+cd client && npm install
 
-**Frontend:**
-
-```bash
-cd client
-npm install
-
-```
-
-**Backend:**
-
-```bash
+# Backend
 cd server
 pip install uv
 uv sync
 
 ```
 
-### 2. Running Locally (Development)
+### 2. Running Locally
 
-We use `concurrently` to run both client and server:
+Run both client and server:
 
 ```bash
-# From root directory
-npm run dev
+npm start
 
 ```
 
-* Client: http://localhost:5173
-* Server: http://localhost:8000
-* API Docs: http://localhost:8000/docs
+* Frontend: http://localhost:5173
+* Backend: http://localhost:8000
 
 ### 3. Testing
 
-**Unit Tests:**
-
 ```bash
-# Frontend
-cd client && npm run test
-
-# Backend
-cd server && uv run pytest
+npm run test:all
 
 ```
 
-**Integration Tests:**
+## Deployment
 
-```bash
-# From root
-npm run test:integration
+Push to GitHub. The CI/CD pipeline will:
 
-```
-
-### 4. Deployment
-
-The application is containerized using Docker.
-
-```bash
-docker build -t codesync .
-docker run -p 8000:8000 codesync
-
-```
-
-## API Specification
-
-See `openapi.yaml` for full REST API contract.
-
-```
-
-**Root `package.json` (for concurrency):**
-```json
-{
-  "name": "codesync-root",
-  "scripts": {
-    "dev": "concurrently \"npm run dev --prefix client\" \"cd server && uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000\"",
-    "test:integration": "playwright test"
-  },
-  "devDependencies": {
-    "concurrently": "^8.0.0"
-  }
-}
+1. Run tests.
+2. Build the Docker container.
+3. Deploy to Render.
 
 ```
