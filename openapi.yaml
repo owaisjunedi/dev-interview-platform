@@ -1,0 +1,182 @@
+openapi: 3.0.3
+info:
+  title: DevInterview API
+  version: 1.0.0
+  description: Backend API for Interview Platform
+paths:
+  /auth/login:
+    post:
+      summary: Login user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: {type: string}
+                password: {type: string}
+      responses:
+        '200':
+          description: Returns User and Token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id: {type: string}
+                      email: {type: string}
+                      name: {type: string}
+                      role: {type: string}
+                  token: {type: string}
+
+  /auth/signup:
+    post:
+      summary: Register new user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: {type: string}
+                password: {type: string}
+                name: {type: string}
+      responses:
+        '200':
+          description: Returns User and Token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id: {type: string}
+                      email: {type: string}
+                      name: {type: string}
+                      role: {type: string}
+                  token: {type: string}
+
+  /sessions:
+    get:
+      summary: Get all sessions
+      responses:
+        '200':
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Session'
+    post:
+      summary: Create new session
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                candidateName: {type: string}
+                candidateEmail: {type: string}
+                language: {type: string}
+      responses:
+        '201':
+          description: Created session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+
+  /sessions/{id}:
+    get:
+      summary: Get session details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Session details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+
+  /sessions/{id}/terminate:
+    post:
+      summary: Terminate a session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Session terminated
+
+  /execute:
+    post:
+      summary: Execute code
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code: {type: string}
+                language: {type: string}
+      responses:
+        '200':
+          description: Execution result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  output: {type: string}
+                  error: {type: string}
+
+  /resources/questions:
+    get:
+      summary: Get Top 10 Questions
+      parameters:
+        - name: language
+          in: query
+          schema: {type: string}
+        - name: level
+          in: query
+          schema: {type: string}
+      responses:
+        '200':
+          description: List of questions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: {type: string}
+                    title: {type: string}
+                    difficulty: {type: string}
+                    category: {type: string}
+
+components:
+  schemas:
+    Session:
+      type: object
+      properties:
+        id: {type: string}
+        candidateName: {type: string}
+        candidateEmail: {type: string}
+        date: {type: string}
+        duration: {type: integer}
+        score: {type: integer, nullable: true}
+        status: {type: string}
+        language: {type: string}

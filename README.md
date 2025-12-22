@@ -1,62 +1,64 @@
-# DevInterview.io
+# DevInterview Platform
 
-A real-time collaborative coding interview platform with browser-based execution and interview helper tools.
+A real-time collaborative coding interview platform.
 
 ## Features
-- ⚡ **Real-time Collaboration:** Sync code and whiteboard (Tldraw) instantly.
-- 🏃 **Browser-Based Execution:** Run Python (Pyodide) and JS (Web Workers) safely on the client.
-- 🧑‍💻 **Multi-language Support:** Syntax highlighting for C++, Java, Go, Python, JS.
-- 📋 **Interviewer Tools:** - "Top 10 Questions" generator (Role/Language based).
-  - Session history and grading.
-  - One-click session termination.
-- 🤖 **Automated Insights:** Basic code analysis and suggestions.
+-   **Collaborative Code Editor**: Real-time code synchronization using Monaco Editor and Socket.IO.
+-   **Code Execution**: Run Python and JavaScript code safely in the browser (via backend).
+-   **Whiteboard**: Interactive whiteboard for system design discussions.
+-   **Video/Audio**: (Placeholder for future WebRTC integration).
+-   **Question Bank**: Access top interview questions.
+-   **Admin Tools**: Session management, notes, and termination.
 
 ## Tech Stack
-- **Frontend:** React, Vite, Tailwind, Zustand, Monaco Editor.
-- **Backend:** FastAPI (Python), Socket.io, PostgreSQL.
-- **Deployment:** Docker (Render).
+-   **Frontend**: React, Vite, TailwindCSS, Shadcn UI, Monaco Editor, Tldraw.
+-   **Backend**: FastAPI, Socket.IO, JWT Auth.
+-   **Database**: Mock (In-memory) for this homework.
 
-## Getting Started
+## Prerequisites
+-   Node.js (v18+)
+-   Python (v3.12+)
+-   `uv` (Python package manager)
 
-### 1. Installation
+## Setup & Run
+
+### Backend
+1.  Navigate to `server` directory:
+    ```bash
+    cd server
+    ```
+2.  Install dependencies:
+    ```bash
+    uv sync
+    ```
+3.  Run the server:
+    ```bash
+    uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+    ```
+
+### Frontend
+1.  Navigate to `client` directory:
+    ```bash
+    cd client
+    ```
+2.  Install dependencies:
+    ```bash
+    npm install
+    ```
+3.  Run the development server:
+    ```bash
+    npm run dev
+    ```
+4.  Open [http://localhost:8080](http://localhost:8080) (or the port shown in terminal).
+
+## Testing
+### Backend Verification
+Run the verification script to test API endpoints:
 ```bash
-npm install # Installs root dependencies (concurrently)
-
-# Frontend
-cd client && npm install
-
-# Backend
 cd server
-pip install uv
-uv sync
-
+uv run verify_api.py
 ```
 
-### 2. Running Locally
-
-Run both client and server:
-
-```bash
-npm start
-
-```
-
-* Frontend: http://localhost:5173
-* Backend: http://localhost:8000
-
-### 3. Testing
-
-```bash
-npm run test:all
-
-```
-
-## Deployment
-
-Push to GitHub. The CI/CD pipeline will:
-
-1. Run tests.
-2. Build the Docker container.
-3. Deploy to Render.
-
-```
+## API Documentation
+OpenAPI specification is available at `openapi.yaml`.
+Swagger UI is available at `http://localhost:8000/docs` when the server is running.
