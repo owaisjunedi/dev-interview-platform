@@ -39,7 +39,7 @@ export function useSocket({ sessionId, userId, userName, role, onCodeChange, onW
       // Connect to the backend server (proxy handles /ws or direct URL)
       // Using relative path to leverage Vite proxy in dev and same-origin in prod
       socket = io({
-        path: '/ws/socket.io', // Standard path for python-socketio mounted at /ws
+        path: '/socket.io', // Standard path for python-socketio
         transports: ['websocket'],
         autoConnect: false,
       });
@@ -109,6 +109,8 @@ export function useSocket({ sessionId, userId, userName, role, onCodeChange, onW
     // Initial join if already connected
     if (socket.connected) {
       onConnect();
+    } else {
+      socket.connect();
     }
 
     return () => {
@@ -121,10 +123,11 @@ export function useSocket({ sessionId, userId, userName, role, onCodeChange, onW
       socket?.off('whiteboard_update', onWhiteboardUpdateEvent);
       socket?.off('custom_question', onCustomQuestionEvent);
       socket?.off('execution_result', onExecutionResultEvent);
-      // Do not disconnect socket here to allow persistence across re-renders, 
-      // or manage it carefully. For now, we'll leave it open or disconnect on unmount of the main app.
-      // Actually, for a room hook, we might want to leave the room.
-      socket?.emit('leave_room', { roomId: sessionId, userId });
+
+      // Only leave room, don't disconnect socket to keep it alive for other components if needed
+      // But for this app, we can disconnect to be safe and clean
+      // socket?.emit('leave_room', { roomId: sessionId, userId });
+      // socket?.disconnect();
     };
   }, [sessionId, userId, userName, role, onCodeChange, onWhiteboardUpdate, onCustomQuestion, onExecutionResult]);
 

@@ -51,6 +51,7 @@ class Session(BaseModel):
     score: Optional[int] = None
     status: str
     language: str
+    notes: Optional[str] = None
 
 class ExecuteRequest(BaseModel):
     code: str
@@ -71,7 +72,7 @@ sio_app = socketio.ASGIApp(sio)
 app = FastAPI()
 
 # Mount Socket.IO at /ws
-app.mount("/ws", sio_app)
+# app.mount("/ws", sio_app)
 
 app.add_middleware(
     CORSMiddleware,
@@ -171,12 +172,10 @@ async def update_session(session_id: str, data: dict):
     if "score" in data:
         session.score = data["score"]
     if "notes" in data:
-        # In a real DB we would save notes, here we just acknowledge
-        pass
+        session.notes = data["notes"]
         
     return session
 
-@app.post("/execute", response_model=ExecuteResponse)
 @app.post("/execute", response_model=ExecuteResponse)
 async def execute_code(request: ExecuteRequest):
     output = ""
@@ -222,12 +221,6 @@ async def execute_code(request: ExecuteRequest):
     else:
         error = f"Execution for {request.language} not supported on server yet."
 
-    # Broadcast result to room if session_id is provided (we might need to update ExecuteRequest to include it)
-    # But ExecuteRequest currently only has code and language.
-    # Ideally, we should pass session_id. For now, let's assume the client will emit the result manually 
-    # OR we update the API to accept session_id.
-    # Let's update ExecuteRequest model first.
-    
     return {"output": output, "error": error}
 
 # --- Question Bank ---
@@ -250,6 +243,8 @@ def get_questions(language: str, level: str):
 # --- Socket Events ---
 # Track users in rooms: room_id -> {user_id: user_data}
 room_users: Dict[str, Dict[str, dict]] = {}
+# Track sid to room/user for disconnect cleanup: sid -> (room_id, user_id)
+sid_map: Dict[str, tuple] = {}
 
 @sio.event
 async def connect(sid, environ):
@@ -258,20 +253,17 @@ async def connect(sid, environ):
 @sio.event
 async def disconnect(sid):
     print(f"Disconnected: {sid}")
-    # Find which room this sid belongs to and remove
-    # This is a bit inefficient without a reverse lookup, but fine for now
-    for room_id, users in room_users.items():
-        # We need to map sid to user_id or store sid in user data
-        # Let's assume we can't easily know which user_id corresponds to this sid 
-        # unless we stored it.
-        # Let's iterate and find the user who might have this sid? 
-        # Actually, join_room data has user info.
-        # Better approach: store sid -> (room_id, user_id)
-        pass
-    
-    # For now, we rely on explicit leave_room or handle cleanup if we track sids.
-    # Since we don't track sids in a global map yet, let's just print.
-    # Real implementation should track sid -> user mapping to handle unexpected disconnects.
+    if sid in sid_map:
+        room_id, user_id = sid_map[sid]
+        del sid_map[sid]
+        
+        if room_id in room_users and user_id in room_users[room_id]:
+            del room_users[room_id][user_id]
+            
+            # Broadcast updated user list
+            users_list = list(room_users[room_id].values())
+            await sio.emit('room_users', {'users': users_list}, room=room_id)
+            await sio.emit('user_left', {'userId': user_id}, room=room_id)
 
 @sio.event
 async def join_room(sid, data):
@@ -285,12 +277,11 @@ async def join_room(sid, data):
         room_users[room_id] = {}
     
     # Add user to room tracking
-    # We add a 'sid' field to help with cleanup if needed later
     user['sid'] = sid
     room_users[room_id][user['id']] = user
+    sid_map[sid] = (room_id, user['id'])
     
     # Broadcast updated user list to EVERYONE in the room
-    # Convert dict values to list
     users_list = list(room_users[room_id].values())
     await sio.emit('room_users', {'users': users_list}, room=room_id)
     
@@ -303,6 +294,9 @@ async def leave_room(sid, data):
     user_id = data['userId']
     
     await sio.leave_room(sid, room_id)
+    
+    if sid in sid_map:
+        del sid_map[sid]
     
     if room_id in room_users and user_id in room_users[room_id]:
         del room_users[room_id][user_id]
@@ -337,3 +331,6 @@ async def custom_question(sid, data):
 async def execution_result(sid, data):
     # data = {roomId: "...", output: "...", error: "..."}
     await sio.emit('execution_result', data, room=data['roomId'])
+
+# Wrap FastAPI app with Socket.IO
+app = socketio.ASGIApp(sio, other_asgi_app=app)

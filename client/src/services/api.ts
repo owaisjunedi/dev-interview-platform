@@ -128,8 +128,43 @@ export async function saveCode(sessionId: string, code: string, language: string
 }
 
 export async function getCodeSuggestions(code: string, language: string): Promise<CodeSuggestion[]> {
-  // Mock AI for now as backend doesn't have it
-  return [];
+  // Mock AI suggestions based on code analysis
+  const suggestions: CodeSuggestion[] = [];
+
+  const lines = code.split('\n');
+  lines.forEach((line, index) => {
+    if (line.includes('var ')) {
+      suggestions.push({
+        line: index + 1,
+        type: 'warning',
+        message: "Consider using 'let' or 'const' instead of 'var'",
+      });
+    }
+    if (line.includes('console.log')) {
+      suggestions.push({
+        line: index + 1,
+        type: 'info',
+        message: 'Remember to remove console.log before production',
+      });
+    }
+    if (line.includes('== ') && !line.includes('===')) {
+      suggestions.push({
+        line: index + 1,
+        type: 'warning',
+        message: 'Use strict equality (===) instead of loose equality (==)',
+      });
+    }
+    // Add a generic suggestion for testing if code is short
+    if (code.length > 10 && index === 0) {
+      suggestions.push({
+        line: 1,
+        type: 'info',
+        message: 'AI Hint: Good start! Remember to handle edge cases.',
+      });
+    }
+  });
+
+  return suggestions;
 }
 
 // Questions APIs

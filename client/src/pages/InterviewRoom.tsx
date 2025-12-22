@@ -191,9 +191,11 @@ export default function InterviewRoom() {
     role,
     onCodeChange: (newCode, newLang) => {
       if (newCode !== code) {
+        isRemoteUpdate.current = true;
         setCode(newCode);
       }
       if (newLang !== language) {
+        isRemoteUpdate.current = true;
         setLanguage(newLang);
       }
     },
@@ -261,8 +263,15 @@ export default function InterviewRoom() {
     document.documentElement.classList.toggle('light', !isDark);
   }, [isDark]);
 
+  const isRemoteUpdate = useRef(false);
+
   // Auto-save and emit code changes
   useEffect(() => {
+    if (isRemoteUpdate.current) {
+      isRemoteUpdate.current = false;
+      return;
+    }
+
     const timeout = setTimeout(() => {
       emitCodeChange(code, language);
       if (sessionId) {
@@ -433,6 +442,11 @@ export default function InterviewRoom() {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Clock className="w-4 h-4" />
             <span className="font-mono">{formatTime(elapsedTime)}</span>
+          </div>
+
+          <div className="flex items-center gap-2 text-sm text-muted-foreground ml-4">
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+            <span className="text-xs">{isConnected ? 'Connected' : 'Disconnected'}</span>
           </div>
         </div>
 
