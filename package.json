@@ -1,0 +1,11 @@
+{
+    "name": "dev-interview-platform",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "dev": "concurrently -n \"client,server\" -c \"bgBlue.bold,bgGreen.bold\" \"npm run dev --prefix client\" \"cd server && uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000\""
+    },
+    "devDependencies": {
+        "concurrently": "^9.1.2"
+    }
+}

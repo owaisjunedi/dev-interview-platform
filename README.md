@@ -22,7 +22,18 @@ A real-time collaborative coding interview platform.
 
 ## Setup & Run
 
-### Backend
+### Quick Start (Both Client & Server)
+Run both the client and server concurrently from the root directory:
+1.  Install root dependencies:
+    ```bash
+    npm install
+    ```
+2.  Run both:
+    ```bash
+    npm run dev
+    ```
+
+### Manual Setup
 1.  Navigate to `server` directory:
     ```bash
     cd server
