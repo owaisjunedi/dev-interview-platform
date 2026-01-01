@@ -55,6 +55,7 @@ export interface Session {
   status: 'scheduled' | 'in-progress' | 'completed';
   notes?: string;
   language?: string;
+  startTime?: string;
 }
 
 export interface Question {
