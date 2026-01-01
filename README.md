@@ -62,6 +62,13 @@ cd server
 uv run verify_api.py
 ```
 
+### Integration Tests
+Run the full session lifecycle integration tests:
+```bash
+cd server
+PYTHONPATH=. uv run pytest tests_integration
+```
+
 ## API Documentation
 OpenAPI specification is available at `openapi.yaml`.
 Swagger UI is available at `http://localhost:8000/docs` when the server is running.
