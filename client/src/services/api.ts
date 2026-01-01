@@ -59,6 +59,7 @@ export interface Session {
   code?: string;
   output?: string;
   question?: Question;
+  serverTime?: string;
 }
 
 export interface Question {

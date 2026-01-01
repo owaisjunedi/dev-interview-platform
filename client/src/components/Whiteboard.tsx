@@ -19,7 +19,7 @@ function WhiteboardEditor({ onMount, sessionId }: { onMount: (editor: Editor) =>
   );
 }
 
-export function Whiteboard({ emitWhiteboardUpdate, lastRemoteUpdate, onMount }: { emitWhiteboardUpdate: (data: any) => void, lastRemoteUpdate: any, onMount?: (editor: Editor) => void }) {
+export function Whiteboard({ emitWhiteboardUpdate, lastRemoteUpdate, onMount, initialState }: { emitWhiteboardUpdate: (data: any) => void, lastRemoteUpdate: any, onMount?: (editor: Editor) => void, initialState?: any }) {
   const { sessionId } = useParams<{ sessionId: string }>();
   const [editor, setEditor] = useState<Editor | null>(null);
   const [isRemoteUpdate, setIsRemoteUpdate] = useState(false);
@@ -47,6 +47,19 @@ export function Whiteboard({ emitWhiteboardUpdate, lastRemoteUpdate, onMount }: 
       setIsRemoteUpdate(false);
     }
   }, [editor, lastRemoteUpdate]);
+
+  // Load initial state
+  useEffect(() => {
+    if (editor && initialState) {
+      setIsRemoteUpdate(true);
+      editor.store.mergeRemoteChanges(() => {
+        Object.values(initialState).forEach((record: any) => {
+          editor.store.put([record]);
+        });
+      });
+      setIsRemoteUpdate(false);
+    }
+  }, [editor, initialState]);
 
   useEffect(() => {
     if (editor && onMount) {

@@ -42,6 +42,64 @@ class SessionCreate(BaseModel):
     candidateEmail: str
     language: str
 
+# Default code templates
+DEFAULT_CODE = {
+    "python": """# Welcome to DevInterview.io
+# Write your solution below
+
+def solution():
+    # Your code here
+    pass
+
+# Example usage
+if __name__ == "__main__":
+    result = solution()
+    print(result)
+""",
+    "javascript": """// Welcome to DevInterview.io
+// Write your solution below
+
+function solution() {
+    // Your code here
+}
+
+// Example usage
+console.log(solution());
+""",
+    "java": """// Welcome to DevInterview.io
+// Write your solution below
+
+public class Solution {
+    public static void main(String[] args) {
+        # Your code here
+    }
+}
+""",
+    "cpp": """// Welcome to DevInterview.io
+// Write your solution below
+
+#include <iostream>
+using namespace std;
+
+int main() {
+    // Your code here
+    return 0;
+}
+""",
+    "go": """// Welcome to DevInterview.io
+// Write your solution below
+
+package main
+
+import "fmt"
+
+func main() {
+    // Your code here
+    fmt.Println("Hello, DevInterview!")
+}
+"""
+}
+
 class Session(BaseModel):
     id: str
     candidateName: str
@@ -56,6 +114,8 @@ class Session(BaseModel):
     code: Optional[str] = None
     output: Optional[str] = None
     question: Optional[dict] = None
+    serverTime: Optional[str] = None
+    whiteboard: Optional[dict] = None
 
 class ExecuteRequest(BaseModel):
     code: str
@@ -120,7 +180,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 def create_access_token(data: dict):
     to_encode = data.copy()
-    expire = datetime.datetime.utcnow() + datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -171,11 +231,11 @@ def create_session(session_data: SessionCreate):
         id=session_id,
         candidateName=session_data.candidateName,
         candidateEmail=session_data.candidateEmail,
-        date=datetime.datetime.now().isoformat(),
+        date=datetime.datetime.now(datetime.timezone.utc).isoformat(),
         duration=0,
         status="scheduled",
         language=session_data.language,
-        code="",
+        code=DEFAULT_CODE.get(session_data.language, ""),
         output=""
     )
     sessions_db[session_id] = new_session
@@ -186,6 +246,8 @@ def get_session(session_id: str):
     session = sessions_db.get(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    # Inject current server time for sync
+    session.serverTime = datetime.datetime.now(datetime.timezone.utc).isoformat()
     return session
 
 @app.post("/sessions/{session_id}/terminate")
@@ -323,7 +385,7 @@ async def join_room(sid, data):
     if room_id in sessions_db:
         session = sessions_db[room_id]
         if session.startTime is None:
-            session.startTime = (datetime.datetime.utcnow()).isoformat() + 'Z'
+            session.startTime = datetime.datetime.now(datetime.timezone.utc).isoformat()
             # Broadcast session update or just let clients fetch it?
             # Better to emit an event so clients update timer immediately
             await sio.emit('session_updated', session.dict(), room=room_id)
@@ -378,6 +440,55 @@ async def cursor_move(sid, data):
 
 @sio.event
 async def whiteboard_update(sid, data):
+    room_id = data['roomId']
+    if room_id in sessions_db:
+        # data['changes'] contains the tldraw updates
+        # We need to merge these into the session state
+        # For simplicity, if we don't have a whiteboard state yet, we init it
+        # If we do, we should merge. But tldraw sends deltas.
+        # Ideally, we should maintain the full state in the backend.
+        # However, implementing full CRDT merge in Python is hard.
+        # A simpler approach for this MVP:
+        # 1. If 'snapshot' is sent, replace state.
+        # 2. If 'changes' are sent, we might need to accumulate them.
+        # But wait, tldraw persistence usually requires storing the full snapshot or event log.
+        # Let's see what the frontend sends. It sends { changes: ... } which are deltas.
+        # If we just broadcast deltas, new clients miss old data.
+        # We need to store the ACCUMULATED state.
+        
+        session = sessions_db[room_id]
+        if session.whiteboard is None:
+            session.whiteboard = {}
+            
+        # Apply changes to our in-memory store
+        # changes = { added: {...}, updated: {...}, removed: {...} }
+        changes = data.get('changes', {})
+        
+        added = changes.get('added', {})
+        updated = changes.get('updated', {})
+        removed = changes.get('removed', {})
+        
+        for k, v in added.items():
+            session.whiteboard[k] = v
+            
+        for k, v in updated.items():
+            # v is [from, to] for updates in tldraw store events?
+            # Wait, let's check frontend code again.
+            # Frontend: editor.store.listen sends { changes }
+            # Tldraw 'updated' change is { id: { ...diff... } } or [from, to]?
+            # The frontend code: 
+            # Object.values(updated || {}).forEach((record: any) => { const [from, to] = record; editor.store.put([to]); });
+            # So 'updated' values are [from, to] arrays. We want 'to'.
+            if isinstance(v, list) and len(v) == 2:
+                session.whiteboard[k] = v[1]
+            else:
+                # Fallback if it's just the record
+                session.whiteboard[k] = v
+                
+        for k, v in removed.items():
+            if k in session.whiteboard:
+                del session.whiteboard[k]
+                
     await sio.emit('whiteboard_update', data, room=data['roomId'], skip_sid=sid)
 
 @sio.event

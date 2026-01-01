@@ -131,6 +131,7 @@ export default function InterviewRoom() {
 
   // Timer
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [serverTimeOffset, setServerTimeOffset] = useState(0);
   const timerRef = useRef<NodeJS.Timeout>();
 
   // Code
@@ -146,6 +147,7 @@ export default function InterviewRoom() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
+  const [sessionData, setSessionData] = useState<any>(null);
 
   // Custom Question
   const [customQuestionTitle, setCustomQuestionTitle] = useState('');
@@ -168,10 +170,16 @@ export default function InterviewRoom() {
         if (session) {
           if (session.notes) setAdminNotes(session.notes);
           if (session.score !== null && session.score !== undefined) setSessionScore(session.score.toString());
+          // Calculate server time offset
+          if (session.serverTime) {
+            const serverTime = new Date(session.serverTime).getTime();
+            const clientTime = Date.now();
+            setServerTimeOffset(serverTime - clientTime);
+          }
           if (session.language) {
             setLanguage(session.language);
-            // Only set default code if current code is the default python one (initial state)
-            if (code === DEFAULT_CODE.python && !session.code) {
+            // Always set default code if session code is empty/null
+            if (!session.code) {
               setCode(DEFAULT_CODE[session.language] || DEFAULT_CODE.python);
             }
           }
@@ -184,6 +192,7 @@ export default function InterviewRoom() {
             setSelectedQuestion(session.question);
             setLeftTab('question');
           }
+          setSessionData(session);
         }
       } catch (error) {
         console.error('Failed to fetch session:', error);
@@ -226,8 +235,10 @@ export default function InterviewRoom() {
 
   const handleSessionUpdated = useCallback((session: any) => {
     if (session.startTime) {
+      // Parse UTC string correctly
       const start = new Date(session.startTime).getTime();
-      const now = Date.now();
+      // Use server time offset to sync clocks
+      const now = Date.now() + serverTimeOffset;
       const diff = Math.floor((now - start) / 1000);
       setElapsedTime(diff > 0 ? diff : 0);
     }
@@ -260,7 +271,7 @@ export default function InterviewRoom() {
         if (session) {
           if (session.startTime) {
             const start = new Date(session.startTime).getTime();
-            const now = Date.now();
+            const now = Date.now() + serverTimeOffset;
             const diff = Math.floor((now - start) / 1000);
             setElapsedTime(diff > 0 ? diff : 0);
           } else {
@@ -622,14 +633,16 @@ export default function InterviewRoom() {
                   </ScrollArea>
                 </TabsContent>
 
-                <TabsContent value="whiteboard" className="flex-1 m-0 overflow-hidden">
+                {/* Whiteboard - Always mounted but hidden when not active */}
+                <div className={`flex-1 m-0 overflow-hidden ${leftTab === 'whiteboard' ? 'block' : 'hidden'}`}>
                   <div className="h-full tldraw-container">
                     <Whiteboard
                       emitWhiteboardUpdate={emitWhiteboardUpdate}
                       lastRemoteUpdate={whiteboardUpdates}
+                      initialState={sessionData?.whiteboard}
                     />
                   </div>
-                </TabsContent>
+                </div>
 
                 {role === 'interviewer' && (
                   <>
