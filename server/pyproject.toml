@@ -22,4 +22,5 @@ dependencies = [
     "uvicorn>=0.40.0",
     "pytest-asyncio>=0.23.5",
     "aiohttp>=3.13.2",
+    "aiosqlite>=0.22.1",
 ]

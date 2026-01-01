@@ -23,6 +23,7 @@ import {
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import Editor from '@monaco-editor/react';
 import 'tldraw/tldraw.css';
+import { createTLStore, defaultShapeUtils } from 'tldraw';
 import { Whiteboard } from '@/components/Whiteboard';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -149,6 +150,9 @@ export default function InterviewRoom() {
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
   const [sessionData, setSessionData] = useState<any>(null);
 
+  // Whiteboard Store
+  const [whiteboardStore] = useState(() => createTLStore({ shapeUtils: defaultShapeUtils }));
+
   // Custom Question
   const [customQuestionTitle, setCustomQuestionTitle] = useState('');
   const [customQuestionDesc, setCustomQuestionDesc] = useState('');
@@ -191,6 +195,13 @@ export default function InterviewRoom() {
           if (session.question) {
             setSelectedQuestion(session.question);
             setLeftTab('question');
+          }
+          if (session.whiteboard) {
+            whiteboardStore.mergeRemoteChanges(() => {
+              Object.values(session.whiteboard).forEach((record: any) => {
+                whiteboardStore.put([record]);
+              });
+            });
           }
           setSessionData(session);
         }
@@ -244,11 +255,23 @@ export default function InterviewRoom() {
     }
   }, []);
 
-  const [whiteboardUpdates, setWhiteboardUpdates] = useState<any>(null);
-
   const handleWhiteboardUpdate = useCallback((data: any) => {
-    setWhiteboardUpdates(data);
-  }, []);
+    if (data.changes) {
+      whiteboardStore.mergeRemoteChanges(() => {
+        const { added, updated, removed } = data.changes;
+        Object.values(added || {}).forEach((record: any) => {
+          whiteboardStore.put([record as any]);
+        });
+        Object.values(updated || {}).forEach((record: any) => {
+          const [_, to] = record as [any, any];
+          whiteboardStore.put([to]);
+        });
+        Object.values(removed || {}).forEach((record: any) => {
+          whiteboardStore.remove([(record as any).id]);
+        });
+      });
+    }
+  }, [whiteboardStore]);
 
   const { isConnected, connectedUsers, emitCodeChange, emitCustomQuestion, emitExecutionResult, emitWhiteboardUpdate } = useSocket({
     sessionId: sessionId || '',
@@ -633,16 +656,23 @@ export default function InterviewRoom() {
                   </ScrollArea>
                 </TabsContent>
 
-                {/* Whiteboard - Always mounted but hidden when not active */}
-                <div className={`flex-1 m-0 overflow-hidden ${leftTab === 'whiteboard' ? 'block' : 'hidden'}`}>
-                  <div className="h-full tldraw-container">
-                    <Whiteboard
-                      emitWhiteboardUpdate={emitWhiteboardUpdate}
-                      lastRemoteUpdate={whiteboardUpdates}
-                      initialState={sessionData?.whiteboard}
-                    />
+                <TabsContent value="whiteboard" className="flex-1 m-0 overflow-hidden">
+                  <div className="h-full flex flex-col">
+                    <div className="px-3 py-1.5 bg-muted/50 border-b border-border flex items-center gap-2 shrink-0">
+                      <Sparkles className="w-3.5 h-3.5 text-accent" />
+                      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                        Whiteboard Active: Keyboard shortcuts may be captured. <br />
+                        For Optimal Use, close the whiteboard while using the code editor.
+                      </span>
+                    </div>
+                    <div className="flex-1 tldraw-container">
+                      <Whiteboard
+                        store={whiteboardStore}
+                        emitWhiteboardUpdate={emitWhiteboardUpdate}
+                      />
+                    </div>
                   </div>
-                </div>
+                </TabsContent>
 
                 {role === 'interviewer' && (
                   <>

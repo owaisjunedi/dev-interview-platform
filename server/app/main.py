@@ -10,6 +10,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 import socketio
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy import update
+
+from .database import engine, Base, get_db, SessionLocal
+from . import models
 
 # --- Configuration ---
 SECRET_KEY = "supersecretkey"  # Change in production
@@ -117,6 +123,9 @@ class Session(BaseModel):
     serverTime: Optional[str] = None
     whiteboard: Optional[dict] = None
 
+    class Config:
+        from_attributes = True
+
 class ExecuteRequest(BaseModel):
     code: str
     language: str
@@ -126,48 +135,39 @@ class ExecuteResponse(BaseModel):
     error: Optional[str] = None
 
 # --- Mock Database ---
-users_db: Dict[str, dict] = {
-    "interviewer@example.com": {
-        "id": "user-1",
-        "email": "interviewer@example.com",
-        "password": "password123",
-        "name": "Alice Interviewer",
-        "role": "interviewer"
-    },
-    "tech.lead@example.com": {
-        "id": "user-2",
-        "email": "tech.lead@example.com",
-        "password": "securepass",
-        "name": "Bob Lead",
-        "role": "interviewer"
-    },
-    "candidate@example.com": {
-        "id": "user-3",
-        "email": "candidate@example.com",
-        "password": "candidate123",
-        "name": "Charlie Candidate",
-        "role": "candidate"
-    },
-    "junior@example.com": {
-        "id": "user-4",
-        "email": "junior@example.com",
-        "password": "juniorpass",
-        "name": "Dave Junior",
-        "role": "candidate"
-    }
-}  # email -> user_dict
-sessions_db: Dict[str, Session] = {}
+# users_db and sessions_db removed in favor of SQLAlchemy
+
 
 # --- Socket.IO Setup ---
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 sio_app = socketio.ASGIApp(sio)
 
-app = FastAPI()
+fastapi_app = FastAPI()
+
+@fastapi_app.on_event("startup")
+async def startup():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    
+    # Seed mock users if database is empty
+    async with SessionLocal() as db:
+        result = await db.execute(select(models.User))
+        if not result.scalars().first():
+            print("Seeding mock users...")
+            mock_users = [
+                models.User(id="user-1", email="interviewer@example.com", password="password123", name="Alice Interviewer", role="interviewer"),
+                models.User(id="user-2", email="tech.lead@example.com", password="securepass", name="Bob Lead", role="interviewer"),
+                models.User(id="user-3", email="candidate@example.com", password="candidate123", name="Charlie Candidate", role="candidate"),
+                models.User(id="user-4", email="junior@example.com", password="juniorpass", name="Dave Junior", role="candidate"),
+            ]
+            db.add_all(mock_users)
+            await db.commit()
+            print("Seeding complete.")
 
 # Mount Socket.IO at /ws
-# app.mount("/ws", sio_app)
+# fastapi_app.mount("/ws", sio_app)
 
-app.add_middleware(
+fastapi_app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
@@ -187,50 +187,86 @@ def create_access_token(data: dict):
 
 # --- Routes ---
 
-@app.post("/auth/signup", response_model=Dict)
-def signup(user_data: UserSignup):
-    if user_data.email in users_db:
+@fastapi_app.post("/auth/signup", response_model=Dict)
+async def signup(user_data: UserSignup, db: AsyncSession = Depends(get_db)):
+    # Check if user exists
+    result = await db.execute(select(models.User).where(models.User.email == user_data.email))
+    if result.scalars().first():
         raise HTTPException(status_code=400, detail="Email already registered")
     
     user_id = str(uuid.uuid4())
-    new_user = {
-        "id": user_id,
-        "email": user_data.email,
-        "password": user_data.password, # In production, hash this!
-        "name": user_data.name,
-        "role": "interviewer"
-    }
-    users_db[user_data.email] = new_user
+    new_user = models.User(
+        id=user_id,
+        email=user_data.email,
+        password=user_data.password, # In production, hash this!
+        name=user_data.name,
+        role="interviewer"
+    )
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
     
     token = create_access_token({"sub": user_data.email})
     return {
-        "user": {k: v for k, v in new_user.items() if k != "password"},
+        "user": {
+            "id": new_user.id,
+            "email": new_user.email,
+            "name": new_user.name,
+            "role": new_user.role
+        },
         "token": token
     }
 
-@app.post("/auth/login", response_model=Dict)
-def login(user_data: UserLogin):
-    user = users_db.get(user_data.email)
-    if not user or user["password"] != user_data.password:
+@fastapi_app.post("/auth/login", response_model=Dict)
+async def login(user_data: UserLogin, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(models.User).where(models.User.email == user_data.email))
+    user = result.scalars().first()
+    
+    if not user or user.password != user_data.password:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     token = create_access_token({"sub": user_data.email})
     return {
-        "user": {k: v for k, v in user.items() if k != "password"},
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "name": user.name,
+            "role": user.role
+        },
         "token": token
     }
 
-@app.get("/sessions", response_model=List[Session])
-def get_sessions():
-    return list(sessions_db.values())
+@fastapi_app.get("/sessions", response_model=List[Session])
+async def get_sessions(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(models.Session))
+    sessions = result.scalars().all()
+    return [
+        Session(
+            id=s.id,
+            candidateName=s.candidate_name,
+            candidateEmail=s.candidate_email,
+            date=s.date,
+            duration=s.duration,
+            score=s.score,
+            status=s.status,
+            language=s.language,
+            notes=s.notes,
+            startTime=s.start_time,
+            code=s.code,
+            output=s.output,
+            question=s.question,
+            serverTime=s.server_time,
+            whiteboard=s.whiteboard
+        ) for s in sessions
+    ]
 
-@app.post("/sessions", response_model=Session, status_code=201)
-def create_session(session_data: SessionCreate):
+@fastapi_app.post("/sessions", response_model=Session, status_code=201)
+async def create_session(session_data: SessionCreate, db: AsyncSession = Depends(get_db)):
     session_id = str(uuid.uuid4())[:8] # Short ID for easier sharing
-    new_session = Session(
+    new_session = models.Session(
         id=session_id,
-        candidateName=session_data.candidateName,
-        candidateEmail=session_data.candidateEmail,
+        candidate_name=session_data.candidateName,
+        candidate_email=session_data.candidateEmail,
         date=datetime.datetime.now(datetime.timezone.utc).isoformat(),
         duration=0,
         status="scheduled",
@@ -238,31 +274,92 @@ def create_session(session_data: SessionCreate):
         code=DEFAULT_CODE.get(session_data.language, ""),
         output=""
     )
-    sessions_db[session_id] = new_session
-    return new_session
+    db.add(new_session)
+    await db.commit()
+    await db.refresh(new_session)
+    
+    # Map back to Pydantic model (fields match mostly, but snake_case vs camelCase needs handling if not using aliases)
+    # Our Pydantic model uses camelCase for some fields (candidateName), but DB uses snake_case (candidate_name).
+    # We should probably update Pydantic model to use aliases or map manually.
+    # For now, manual mapping or constructing the response.
+    # Actually, FastAPI/Pydantic can handle ORM objects if `from_attributes = True` (v2) or `orm_mode = True` (v1).
+    # Let's update the Pydantic model to support ORM mode.
+    return Session(
+        id=new_session.id,
+        candidateName=new_session.candidate_name,
+        candidateEmail=new_session.candidate_email,
+        date=new_session.date,
+        duration=new_session.duration,
+        score=new_session.score,
+        status=new_session.status,
+        language=new_session.language,
+        notes=new_session.notes,
+        startTime=new_session.start_time,
+        code=new_session.code,
+        output=new_session.output,
+        question=new_session.question,
+        serverTime=new_session.server_time,
+        whiteboard=new_session.whiteboard
+    )
 
-@app.get("/sessions/{session_id}", response_model=Session)
-def get_session(session_id: str):
-    session = sessions_db.get(session_id)
+@fastapi_app.get("/sessions/{session_id}", response_model=Session)
+async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(models.Session).where(models.Session.id == session_id))
+    session = result.scalars().first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    
     # Inject current server time for sync
-    session.serverTime = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    return session
+    # We don't save serverTime to DB usually, it's a transient field for sync?
+    # The model has server_time.
+    # Let's set it on the object before returning.
+    session.server_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    
+    return Session(
+        id=session.id,
+        candidateName=session.candidate_name,
+        candidateEmail=session.candidate_email,
+        date=session.date,
+        duration=session.duration,
+        score=session.score,
+        status=session.status,
+        language=session.language,
+        notes=session.notes,
+        startTime=session.start_time,
+        code=session.code,
+        output=session.output,
+        question=session.question,
+        serverTime=session.server_time,
+        whiteboard=session.whiteboard
+    )
 
-@app.post("/sessions/{session_id}/terminate")
-async def terminate_session(session_id: str):
-    session = sessions_db.get(session_id)
+@fastapi_app.post("/sessions/{session_id}/terminate")
+async def terminate_session(session_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(models.Session).where(models.Session.id == session_id))
+    session = result.scalars().first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
     session.status = "completed"
+    await db.commit()
     await sio.emit('session_ended', {}, room=session_id)
     return {"message": "Session terminated"}
 
-@app.put("/sessions/{session_id}")
-async def update_session(session_id: str, data: dict):
-    session = sessions_db.get(session_id)
+@fastapi_app.delete("/sessions/{session_id}")
+async def delete_session(session_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(models.Session).where(models.Session.id == session_id))
+    session = result.scalars().first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    await db.delete(session)
+    await db.commit()
+    return {"message": "Session deleted"}
+
+@fastapi_app.put("/sessions/{session_id}")
+async def update_session(session_id: str, data: dict, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(models.Session).where(models.Session.id == session_id))
+    session = result.scalars().first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
@@ -271,9 +368,43 @@ async def update_session(session_id: str, data: dict):
     if "notes" in data:
         session.notes = data["notes"]
         
-    return session
+    await db.commit()
+    await db.refresh(session)
+    
+    return Session(
+        id=session.id,
+        candidateName=session.candidate_name,
+        candidateEmail=session.candidate_email,
+        date=session.date,
+        duration=session.duration,
+        score=session.score,
+        status=session.status,
+        language=session.language,
+        notes=session.notes,
+        startTime=session.start_time,
+        code=session.code,
+        output=session.output,
+        question=session.question,
+        serverTime=session.server_time,
+        whiteboard=session.whiteboard
+    )
 
-@app.post("/execute", response_model=ExecuteResponse)
+@fastapi_app.post("/sessions/{session_id}/save_code")
+async def save_code_endpoint(session_id: str, data: dict, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(models.Session).where(models.Session.id == session_id))
+    session = result.scalars().first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    if "code" in data:
+        session.code = data["code"]
+    if "language" in data:
+        session.language = data["language"]
+        
+    await db.commit()
+    return {"message": "Code saved successfully"}
+
+@fastapi_app.post("/execute", response_model=ExecuteResponse)
 async def execute_code(request: ExecuteRequest):
     output = ""
     error = None
@@ -332,7 +463,7 @@ QUESTION_BANK = {
     ]
 }
 
-@app.get("/resources/questions")
+@fastapi_app.get("/resources/questions")
 def get_questions(language: str, level: str):
     lang_lower = language.lower()
     return QUESTION_BANK.get(lang_lower, [])
@@ -382,19 +513,46 @@ async def join_room(sid, data):
     sid_map[sid] = (room_id, user['id'])
     
     # Start timer if not started
-    if room_id in sessions_db:
-        session = sessions_db[room_id]
-        if session.startTime is None:
-            session.startTime = datetime.datetime.now(datetime.timezone.utc).isoformat()
-            # Broadcast session update or just let clients fetch it?
-            # Better to emit an event so clients update timer immediately
-            await sio.emit('session_updated', session.dict(), room=room_id)
-    
-    await sio.emit('code_change', {'code': session.code, 'language': session.language}, room=sid)
-    if session.question:
-        await sio.emit('custom_question', {'question': session.question}, room=sid)
-    if session.output:
-        await sio.emit('execution_result', {'output': session.output}, room=sid)
+    async with SessionLocal() as db:
+        result = await db.execute(select(models.Session).where(models.Session.id == room_id))
+        session = result.scalars().first()
+        
+        if session:
+            if session.start_time is None:
+                session.start_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                await db.commit()
+                # Broadcast session update or just let clients fetch it?
+                # Better to emit an event so clients update timer immediately
+                # We need to serialize the session manually or use Pydantic
+                session_dict = {
+                    "id": session.id,
+                    "startTime": session.start_time,
+                    # Add other fields if needed by frontend
+                }
+                await sio.emit('session_updated', session_dict, room=room_id)
+            
+            await sio.emit('code_change', {'code': session.code, 'language': session.language}, room=sid)
+            if session.question:
+                await sio.emit('custom_question', {'question': session.question}, room=sid)
+            if session.output:
+                await sio.emit('execution_result', {'output': session.output}, room=sid)
+            if session.whiteboard:
+                 # Send full whiteboard state on join
+                 # Frontend expects { changes: { added: ... } } or just the state?
+                 # Frontend 'initialState' prop handles the load on mount.
+                 # But if we join late, we might need an event?
+                 # The 'whiteboard_update' event sends changes.
+                 # If we rely on 'initialState' via API, we don't need to emit here.
+                 # But let's check frontend logic.
+                 # Frontend uses 'initialState' prop passed from InterviewRoom.
+                 # InterviewRoom fetches session via API.
+                 # So we don't strictly need to emit here if the user just loaded the page.
+                 # However, if they reconnect via socket without reloading page?
+                 # Let's emit it just in case, or skip it if API handles it.
+                 # Existing code didn't emit whiteboard on join, it relied on 'whiteboard_update' broadcast?
+                 # No, existing code didn't have persistence.
+                 # Let's leave it to API for initial load.
+                 pass
 
     # Broadcast updated user list to EVERYONE in the room
     users_list = list(room_users[room_id].values())
@@ -428,9 +586,14 @@ async def code_change(sid, data):
     # Broadcast code to everyone else in the room
     # data = {roomId: "...", code: "...", language: "..."}
     room_id = data['roomId']
-    if room_id in sessions_db:
-        sessions_db[room_id].code = data['code']
-        sessions_db[room_id].language = data['language']
+    
+    async with SessionLocal() as db:
+        result = await db.execute(select(models.Session).where(models.Session.id == room_id))
+        session = result.scalars().first()
+        if session:
+            session.code = data['code']
+            session.language = data['language']
+            await db.commit()
         
     await sio.emit('code_change', data, room=room_id, skip_sid=sid)
 
@@ -441,53 +604,44 @@ async def cursor_move(sid, data):
 @sio.event
 async def whiteboard_update(sid, data):
     room_id = data['roomId']
-    if room_id in sessions_db:
-        # data['changes'] contains the tldraw updates
-        # We need to merge these into the session state
-        # For simplicity, if we don't have a whiteboard state yet, we init it
-        # If we do, we should merge. But tldraw sends deltas.
-        # Ideally, we should maintain the full state in the backend.
-        # However, implementing full CRDT merge in Python is hard.
-        # A simpler approach for this MVP:
-        # 1. If 'snapshot' is sent, replace state.
-        # 2. If 'changes' are sent, we might need to accumulate them.
-        # But wait, tldraw persistence usually requires storing the full snapshot or event log.
-        # Let's see what the frontend sends. It sends { changes: ... } which are deltas.
-        # If we just broadcast deltas, new clients miss old data.
-        # We need to store the ACCUMULATED state.
+    
+    async with SessionLocal() as db:
+        result = await db.execute(select(models.Session).where(models.Session.id == room_id))
+        session = result.scalars().first()
         
-        session = sessions_db[room_id]
-        if session.whiteboard is None:
-            session.whiteboard = {}
+        if session:
+            # data['changes'] contains the tldraw updates
+            # We need to merge these into the session state
             
-        # Apply changes to our in-memory store
-        # changes = { added: {...}, updated: {...}, removed: {...} }
-        changes = data.get('changes', {})
-        
-        added = changes.get('added', {})
-        updated = changes.get('updated', {})
-        removed = changes.get('removed', {})
-        
-        for k, v in added.items():
-            session.whiteboard[k] = v
+            # Ensure whiteboard is a dict (it might be None initially)
+            # Note: SQLAlchemy JSON type returns dict or list, or None.
+            # We need to be careful about mutating it.
+            # For JSON types, often you need to re-assign the field to trigger update if mutable tracking isn't perfect.
+            current_wb = dict(session.whiteboard) if session.whiteboard else {}
             
-        for k, v in updated.items():
-            # v is [from, to] for updates in tldraw store events?
-            # Wait, let's check frontend code again.
-            # Frontend: editor.store.listen sends { changes }
-            # Tldraw 'updated' change is { id: { ...diff... } } or [from, to]?
-            # The frontend code: 
-            # Object.values(updated || {}).forEach((record: any) => { const [from, to] = record; editor.store.put([to]); });
-            # So 'updated' values are [from, to] arrays. We want 'to'.
-            if isinstance(v, list) and len(v) == 2:
-                session.whiteboard[k] = v[1]
-            else:
-                # Fallback if it's just the record
-                session.whiteboard[k] = v
+            # Apply changes to our in-memory store
+            # changes = { added: {...}, updated: {...}, removed: {...} }
+            changes = data.get('changes', {})
+            
+            added = changes.get('added', {})
+            updated = changes.get('updated', {})
+            removed = changes.get('removed', {})
+            
+            for k, v in added.items():
+                current_wb[k] = v
                 
-        for k, v in removed.items():
-            if k in session.whiteboard:
-                del session.whiteboard[k]
+            for k, v in updated.items():
+                if isinstance(v, list) and len(v) == 2:
+                    current_wb[k] = v[1]
+                else:
+                    current_wb[k] = v
+                    
+            for k, v in removed.items():
+                if k in current_wb:
+                    del current_wb[k]
+            
+            session.whiteboard = current_wb
+            await db.commit()
                 
     await sio.emit('whiteboard_update', data, room=data['roomId'], skip_sid=sid)
 
@@ -495,8 +649,13 @@ async def whiteboard_update(sid, data):
 async def custom_question(sid, data):
     # data = {roomId: "...", question: {...}}
     room_id = data['roomId']
-    if room_id in sessions_db:
-        sessions_db[room_id].question = data['question']
+    
+    async with SessionLocal() as db:
+        result = await db.execute(select(models.Session).where(models.Session.id == room_id))
+        session = result.scalars().first()
+        if session:
+            session.question = data['question']
+            await db.commit()
         
     await sio.emit('custom_question', data, room=room_id)
 
@@ -504,10 +663,15 @@ async def custom_question(sid, data):
 async def execution_result(sid, data):
     # data = {roomId: "...", output: "...", error: "..."}
     room_id = data['roomId']
-    if room_id in sessions_db:
-        sessions_db[room_id].output = data.get('output') or data.get('error')
+    
+    async with SessionLocal() as db:
+        result = await db.execute(select(models.Session).where(models.Session.id == room_id))
+        session = result.scalars().first()
+        if session:
+            session.output = data.get('output') or data.get('error')
+            await db.commit()
         
     await sio.emit('execution_result', data, room=data['roomId'])
 
 # Wrap FastAPI app with Socket.IO
-app = socketio.ASGIApp(sio, other_asgi_app=app)
+app = socketio.ASGIApp(sio, other_asgi_app=fastapi_app)

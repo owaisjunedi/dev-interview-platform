@@ -60,6 +60,7 @@ export interface Session {
   output?: string;
   question?: Question;
   serverTime?: string;
+  whiteboard?: Record<string, any>;
 }
 
 export interface Question {
@@ -125,11 +126,13 @@ export async function terminateSession(id: string): Promise<void> {
   await api.post(`/sessions/${id}/terminate`);
 }
 
+export async function deleteSession(id: string): Promise<void> {
+  await api.delete(`/sessions/${id}`);
+}
+
 // Code APIs
 export async function saveCode(sessionId: string, code: string, language: string): Promise<void> {
-  // Backend doesn't have saveCode endpoint yet, but we can use updateSession or just log it
-  // For now, we'll skip or implement a dummy
-  console.log('Saving code...', sessionId);
+  await api.post(`/sessions/${sessionId}/save_code`, { code, language });
 }
 
 export async function getCodeSuggestions(code: string, language: string): Promise<CodeSuggestion[]> {

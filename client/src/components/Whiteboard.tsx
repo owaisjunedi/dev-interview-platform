@@ -4,75 +4,34 @@ import { useParams } from 'react-router-dom';
 import {
   Tldraw,
   Editor,
+  TLStore,
 } from 'tldraw';
 
 // We need to access the editor instance to sync changes
-function WhiteboardEditor({ onMount, sessionId }: { onMount: (editor: Editor) => void, sessionId: string }) {
+function WhiteboardEditor({ onMount, sessionId, store }: { onMount: (editor: Editor) => void, sessionId: string, store: TLStore }) {
   const handleMount = (editor: Editor) => {
     onMount(editor);
   };
 
   return (
     <div className="tldraw__editor w-full h-full">
-      <Tldraw onMount={handleMount} persistenceKey={`devinterview-whiteboard-${sessionId}`} />
+      <Tldraw
+        onMount={handleMount}
+        store={store}
+        persistenceKey={`devinterview-whiteboard-${sessionId}`}
+      />
     </div>
   );
 }
 
-export function Whiteboard({ emitWhiteboardUpdate, lastRemoteUpdate, onMount, initialState }: { emitWhiteboardUpdate: (data: any) => void, lastRemoteUpdate: any, onMount?: (editor: Editor) => void, initialState?: any }) {
+export function Whiteboard({ emitWhiteboardUpdate, store }: { emitWhiteboardUpdate: (data: any) => void, store: TLStore }) {
   const { sessionId } = useParams<{ sessionId: string }>();
   const [editor, setEditor] = useState<Editor | null>(null);
-  const [isRemoteUpdate, setIsRemoteUpdate] = useState(false);
-
-  useEffect(() => {
-    if (!editor || !lastRemoteUpdate) return;
-
-    // Apply remote updates
-    if (lastRemoteUpdate.changes) {
-      setIsRemoteUpdate(true);
-      editor.store.mergeRemoteChanges(() => {
-        const { added, updated, removed } = lastRemoteUpdate.changes;
-
-        Object.values(added || {}).forEach((record: any) => {
-          editor.store.put([record]);
-        });
-        Object.values(updated || {}).forEach((record: any) => {
-          const [from, to] = record;
-          editor.store.put([to]);
-        });
-        Object.values(removed || {}).forEach((record: any) => {
-          editor.store.remove([record.id]);
-        });
-      });
-      setIsRemoteUpdate(false);
-    }
-  }, [editor, lastRemoteUpdate]);
-
-  // Load initial state
-  useEffect(() => {
-    if (editor && initialState) {
-      setIsRemoteUpdate(true);
-      editor.store.mergeRemoteChanges(() => {
-        Object.values(initialState).forEach((record: any) => {
-          editor.store.put([record]);
-        });
-      });
-      setIsRemoteUpdate(false);
-    }
-  }, [editor, initialState]);
-
-  useEffect(() => {
-    if (editor && onMount) {
-      onMount(editor);
-    }
-  }, [editor, onMount]);
 
   useEffect(() => {
     if (!editor) return;
 
     const cleanup = editor.store.listen((entry) => {
-      if (isRemoteUpdate) return;
-
       // entry has { changes: { added, updated, removed }, source: 'user' | 'remote' }
       if (entry.source !== 'user') return;
 
@@ -87,7 +46,7 @@ export function Whiteboard({ emitWhiteboardUpdate, lastRemoteUpdate, onMount, in
     });
 
     return () => cleanup();
-  }, [editor, emitWhiteboardUpdate, isRemoteUpdate]);
+  }, [editor, emitWhiteboardUpdate]);
 
   return (
     <Suspense fallback={
@@ -98,7 +57,7 @@ export function Whiteboard({ emitWhiteboardUpdate, lastRemoteUpdate, onMount, in
         </div>
       </div>
     }>
-      <WhiteboardEditor onMount={setEditor} sessionId={sessionId || 'demo'} />
+      <WhiteboardEditor onMount={setEditor} sessionId={sessionId || 'demo'} store={store} />
     </Suspense>
   );
 }

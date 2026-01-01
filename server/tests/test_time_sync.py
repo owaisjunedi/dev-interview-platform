@@ -1,22 +1,26 @@
 import pytest
 import datetime
-from app.main import get_session, create_session, SessionCreate, sessions_db
+from app.main import get_session, create_session, SessionCreate
+from app import models
+from sqlalchemy import select
 
-def test_time_format():
+@pytest.mark.asyncio
+async def test_time_format(test_db):
     # Setup
     session_data = SessionCreate(
         candidateName="Time Test",
         candidateEmail="time@test.com",
         language="python"
     )
-    session = create_session(session_data)
+    
+    # We call the route handler directly, injecting the db
+    session = await create_session(session_data, db=test_db)
     
     # Check date format
     assert session.date.endswith("+00:00") or session.date.endswith("Z")
     
     # Check serverTime format (injected in get_session)
-    # We need to call get_session to see serverTime
-    retrieved_session = get_session(session.id)
+    retrieved_session = await get_session(session.id, db=test_db)
     assert retrieved_session.serverTime is not None
     assert retrieved_session.serverTime.endswith("+00:00") or retrieved_session.serverTime.endswith("Z")
     

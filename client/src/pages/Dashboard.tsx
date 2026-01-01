@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { 
-  Plus, 
-  Calendar, 
-  Clock, 
-  Users, 
-  BarChart3, 
-  LogOut, 
+import {
+  Plus,
+  Calendar,
+  Clock,
+  Users,
+  BarChart3,
+  LogOut,
   ChevronRight,
   Trophy,
   TrendingUp,
   Code2,
-  Search
+  Search,
+  Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,7 +24,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
-import { getSessions, getStats, createSession, Session } from '@/services/api';
+import { getSessions, getStats, createSession, deleteSession, Session } from '@/services/api';
 import { toast } from 'sonner';
 
 const formatDate = (date: string) => {
@@ -64,7 +65,7 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // New session form
   const [newSession, setNewSession] = useState({
     candidateName: '',
@@ -110,6 +111,18 @@ export default function Dashboard() {
     navigate('/');
   };
 
+  const handleDeleteSession = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this session? This action cannot be undone.')) return;
+
+    try {
+      await deleteSession(id);
+      setSessions(sessions.filter(s => s.id !== id));
+      toast.success('Session deleted');
+    } catch (error) {
+      toast.error('Failed to delete session');
+    }
+  };
+
   const filteredSessions = sessions.filter(
     (s) =>
       s.candidateName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -138,7 +151,7 @@ export default function Dashboard() {
               <p className="text-sm text-muted-foreground">Welcome back, {user?.name}</p>
             </div>
           </div>
-          
+
           <Button variant="ghost" size="sm" onClick={handleLogout}>
             <LogOut className="w-4 h-4 mr-2" />
             Logout
@@ -213,7 +226,7 @@ export default function Dashboard() {
                   Manage and review your interview sessions
                 </CardDescription>
               </div>
-              
+
               <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                 <DialogTrigger asChild>
                   <Button className="shadow-glow">
@@ -228,7 +241,7 @@ export default function Dashboard() {
                       Set up a new coding interview session
                     </DialogDescription>
                   </DialogHeader>
-                  
+
                   <div className="space-y-4 pt-4">
                     <div>
                       <Label htmlFor="candidateName">Candidate Name</Label>
@@ -240,7 +253,7 @@ export default function Dashboard() {
                         className="mt-1"
                       />
                     </div>
-                    
+
                     <div>
                       <Label htmlFor="candidateEmail">Candidate Email</Label>
                       <Input
@@ -252,7 +265,7 @@ export default function Dashboard() {
                         className="mt-1"
                       />
                     </div>
-                    
+
                     <div>
                       <Label htmlFor="language">Primary Language</Label>
                       <Select
@@ -271,7 +284,7 @@ export default function Dashboard() {
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     <div>
                       <Label htmlFor="date">Scheduled Date</Label>
                       <Input
@@ -282,7 +295,7 @@ export default function Dashboard() {
                         className="mt-1"
                       />
                     </div>
-                    
+
                     <Button onClick={handleCreateSession} className="w-full mt-4">
                       Create & Start Session
                       <ChevronRight className="w-4 h-4 ml-1" />
@@ -291,7 +304,7 @@ export default function Dashboard() {
                 </DialogContent>
               </Dialog>
             </CardHeader>
-            
+
             <CardContent>
               {/* Search */}
               <div className="relative mb-4">
@@ -303,7 +316,7 @@ export default function Dashboard() {
                   className="pl-9"
                 />
               </div>
-              
+
               {/* Table */}
               <div className="rounded-lg border border-border overflow-hidden">
                 <Table>
@@ -351,15 +364,25 @@ export default function Dashboard() {
                         <TableCell>{getStatusBadge(session.status)}</TableCell>
                         <TableCell>{getScoreBadge(session.score)}</TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => navigate(`/room/${session.id}?role=interviewer`)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            {session.status === 'completed' ? 'Review' : 'Enter'}
-                            <ChevronRight className="w-4 h-4 ml-1" />
-                          </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => navigate(`/room/${session.id}?role=interviewer`)}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              {session.status === 'completed' ? 'Review' : 'Enter'}
+                              <ChevronRight className="w-4 h-4 ml-1" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteSession(session.id)}
+                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </motion.tr>
                     ))}

@@ -41,7 +41,7 @@ async def test_sync_and_persistence():
     # Wait for session update which contains startTime
     session_update = await asyncio.wait_for(future_session_update, timeout=2)
     start_time = session_update['startTime']
-    assert start_time.endswith('Z') # Should be UTC ISO format
+    assert start_time.endswith('Z') or start_time.endswith('+00:00') # Should be UTC ISO format
 
     # 4. Verify History Persistence
     # A makes a code change
