@@ -1,14 +1,9 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { PenTool } from 'lucide-react';
-import { useSocket } from '@/hooks/useSocket';
-import { useParams, useSearchParams } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
+import { useParams } from 'react-router-dom';
 import {
   Tldraw,
-  useEditor,
   Editor,
-  StoreSnapshot,
-  TLRecord
 } from 'tldraw';
 
 // We need to access the editor instance to sync changes
@@ -24,55 +19,40 @@ function WhiteboardEditor({ onMount, sessionId }: { onMount: (editor: Editor) =>
   );
 }
 
-export function Whiteboard() {
+export function Whiteboard({ emitWhiteboardUpdate, lastRemoteUpdate, onMount }: { emitWhiteboardUpdate: (data: any) => void, lastRemoteUpdate: any, onMount?: (editor: Editor) => void }) {
   const { sessionId } = useParams<{ sessionId: string }>();
-  const [searchParams] = useSearchParams();
-  const role = (searchParams.get('role') || 'candidate') as 'interviewer' | 'candidate';
-  const { user } = useAuth();
-  const userId = user?.id || localStorage.getItem('candidate_session') || 'guest';
-  const userName = user?.name || localStorage.getItem('candidate_name') || 'Guest';
-
   const [editor, setEditor] = useState<Editor | null>(null);
   const [isRemoteUpdate, setIsRemoteUpdate] = useState(false);
 
-  const { emitWhiteboardUpdate } = useSocket({
-    sessionId: sessionId || '',
-    userId,
-    userName,
-    role,
-    onWhiteboardUpdate: (data: any) => {
-      if (!editor) return;
+  useEffect(() => {
+    if (!editor || !lastRemoteUpdate) return;
 
-      // Apply remote updates
-      // data should be a list of records to update/remove
-      // For simplicity, we'll assume data is { changes: { added: {}, updated: {}, removed: {} } }
-      // or just a snapshot. Let's try to handle incremental updates if possible, 
-      // but for now, let's assume the backend broadcasts the 'changes' object from Tldraw.
+    // Apply remote updates
+    if (lastRemoteUpdate.changes) {
+      setIsRemoteUpdate(true);
+      editor.store.mergeRemoteChanges(() => {
+        const { added, updated, removed } = lastRemoteUpdate.changes;
 
-      if (data.changes) {
-        setIsRemoteUpdate(true);
-        editor.store.mergeRemoteChanges(() => {
-          const { added, updated, removed } = data.changes;
-          // Tldraw mergeRemoteChanges expects an array of records? 
-          // Actually, it's simpler to just use put/remove if we have the records.
-          // Let's look at the data structure.
-          // If we send the 'changes' object from store.listen, it has { added, updated, removed } maps.
-
-          Object.values(added).forEach((record: any) => {
-            editor.store.put([record]);
-          });
-          Object.values(updated).forEach((record: any) => {
-            const [from, to] = record; // updated is Record<Id, [from, to]>
-            editor.store.put([to]);
-          });
-          Object.values(removed).forEach((record: any) => {
-            editor.store.remove([record.id]);
-          });
+        Object.values(added || {}).forEach((record: any) => {
+          editor.store.put([record]);
         });
-        setIsRemoteUpdate(false);
-      }
+        Object.values(updated || {}).forEach((record: any) => {
+          const [from, to] = record;
+          editor.store.put([to]);
+        });
+        Object.values(removed || {}).forEach((record: any) => {
+          editor.store.remove([record.id]);
+        });
+      });
+      setIsRemoteUpdate(false);
     }
-  });
+  }, [editor, lastRemoteUpdate]);
+
+  useEffect(() => {
+    if (editor && onMount) {
+      onMount(editor);
+    }
+  }, [editor, onMount]);
 
   useEffect(() => {
     if (!editor) return;

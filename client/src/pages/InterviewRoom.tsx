@@ -171,9 +171,18 @@ export default function InterviewRoom() {
           if (session.language) {
             setLanguage(session.language);
             // Only set default code if current code is the default python one (initial state)
-            if (code === DEFAULT_CODE.python) {
+            if (code === DEFAULT_CODE.python && !session.code) {
               setCode(DEFAULT_CODE[session.language] || DEFAULT_CODE.python);
             }
+          }
+          if (session.code) setCode(session.code);
+          if (session.output) {
+            setOutput(session.output);
+            setRightTab('console');
+          }
+          if (session.question) {
+            setSelectedQuestion(session.question);
+            setLeftTab('question');
           }
         }
       } catch (error) {
@@ -224,7 +233,13 @@ export default function InterviewRoom() {
     }
   }, []);
 
-  const { isConnected, connectedUsers, emitCodeChange, emitCustomQuestion, emitExecutionResult } = useSocket({
+  const [whiteboardUpdates, setWhiteboardUpdates] = useState<any>(null);
+
+  const handleWhiteboardUpdate = useCallback((data: any) => {
+    setWhiteboardUpdates(data);
+  }, []);
+
+  const { isConnected, connectedUsers, emitCodeChange, emitCustomQuestion, emitExecutionResult, emitWhiteboardUpdate } = useSocket({
     sessionId: sessionId || '',
     userId,
     userName,
@@ -232,7 +247,8 @@ export default function InterviewRoom() {
     onCodeChange: handleCodeChange,
     onCustomQuestion: handleCustomQuestion,
     onExecutionResult: handleExecutionResult,
-    onSessionUpdated: handleSessionUpdated
+    onSessionUpdated: handleSessionUpdated,
+    onWhiteboardUpdate: handleWhiteboardUpdate
   });
 
   // Timer effect
@@ -327,9 +343,20 @@ export default function InterviewRoom() {
   };
 
   const handleLanguageChange = (newLang: string) => {
-    setLanguage(newLang);
-    if (!code.trim() || code === DEFAULT_CODE[language]) {
+    if (newLang === language) return;
+
+    // Allow change if code is empty, or matches default code for current language (ignoring whitespace)
+    const currentCodeClean = code.replace(/\s/g, '');
+    const defaultCodeClean = (DEFAULT_CODE[language] || '').replace(/\s/g, '');
+
+    if (!code.trim() || currentCodeClean === defaultCodeClean) {
+      setLanguage(newLang);
       setCode(DEFAULT_CODE[newLang] || '');
+    } else {
+      if (confirm('Changing language will reset your code. Continue?')) {
+        setLanguage(newLang);
+        setCode(DEFAULT_CODE[newLang] || '');
+      }
     }
   };
 
@@ -479,12 +506,12 @@ export default function InterviewRoom() {
           {/* Connected Users */}
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-muted-foreground" />
-            <div className="flex -space-x-2">
+            <div className="flex -space-x-2 overflow-hidden max-w-[150px] hover:max-w-none transition-all">
               {connectedUsers.map((u) => (
                 <div
                   key={u.id}
-                  className="w-7 h-7 rounded-full bg-primary/20 border-2 border-background flex items-center justify-center text-xs font-medium"
-                  title={u.name}
+                  className={`w-7 h-7 rounded-full border-2 border-background flex items-center justify-center text-xs font-medium text-white shrink-0 ${u.role === 'interviewer' ? 'bg-blue-500' : 'bg-green-500'}`}
+                  title={`${u.name} (${u.role})`}
                 >
                   {u.name.charAt(0).toUpperCase()}
                 </div>
@@ -573,13 +600,15 @@ export default function InterviewRoom() {
                         <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                           {selectedQuestion.id.startsWith('custom') ? selectedQuestion.title : `Solve the "${selectedQuestion.title}" problem using your preferred approach. Consider edge cases and optimize for time/space complexity.`}
                         </p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelectedQuestion(null)}
-                        >
-                          Clear Selection
-                        </Button>
+                        {role === 'interviewer' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedQuestion(null)}
+                          >
+                            Clear Selection
+                          </Button>
+                        )}
                       </div>
                     ) : (
                       <div className="h-full flex items-center justify-center text-center text-muted-foreground">
@@ -595,7 +624,10 @@ export default function InterviewRoom() {
 
                 <TabsContent value="whiteboard" className="flex-1 m-0 overflow-hidden">
                   <div className="h-full tldraw-container">
-                    <Whiteboard />
+                    <Whiteboard
+                      emitWhiteboardUpdate={emitWhiteboardUpdate}
+                      lastRemoteUpdate={whiteboardUpdates}
+                    />
                   </div>
                 </TabsContent>
 

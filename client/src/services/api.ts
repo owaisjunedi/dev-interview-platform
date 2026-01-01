@@ -56,6 +56,9 @@ export interface Session {
   notes?: string;
   language?: string;
   startTime?: string;
+  code?: string;
+  output?: string;
+  question?: Question;
 }
 
 export interface Question {

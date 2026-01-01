@@ -32,7 +32,7 @@ const features = [
 export default function Landing() {
   const navigate = useNavigate();
   const { login, signup, isLoading } = useAuth();
-  
+
   const [selectedRole, setSelectedRole] = useState<'interviewer' | 'candidate' | null>(null);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
@@ -64,7 +64,7 @@ export default function Landing() {
       toast.error('Please enter both session ID and your name');
       return;
     }
-    
+
     setIsJoining(true);
     try {
       await joinSession(sessionId, candidateName);
@@ -92,7 +92,7 @@ export default function Landing() {
     <div className="min-h-screen bg-gradient-hero relative overflow-hidden">
       {/* Cyber Grid Background */}
       <div className="absolute inset-0 cyber-grid opacity-30" />
-      
+
       {/* Glow Effects */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[120px] animate-pulse-glow" />
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-[120px] animate-pulse-glow" style={{ animationDelay: '1s' }} />
@@ -100,7 +100,7 @@ export default function Landing() {
       <div className="relative z-10">
         {/* Header */}
         <header className="container mx-auto px-6 py-8">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             className="flex items-center gap-3"
@@ -128,9 +128,9 @@ export default function Landing() {
                   <span className="text-gradient"> Technical Interviews </span>
                   Like a Pro
                 </h1>
-                
+
                 <p className="text-lg text-muted-foreground max-w-lg">
-                  Real-time code collaboration, interactive whiteboard, and comprehensive 
+                  Real-time code collaboration, interactive whiteboard, and comprehensive
                   interview tools in one seamless platform.
                 </p>
               </div>
@@ -179,7 +179,7 @@ export default function Landing() {
                       <p className="text-muted-foreground">Select your role to continue</p>
                     </div>
 
-                    <Card 
+                    <Card
                       className="glass-panel glow-border cursor-pointer hover:border-primary/50 transition-all hover:scale-[1.02]"
                       onClick={() => setSelectedRole('interviewer')}
                     >
@@ -200,7 +200,7 @@ export default function Landing() {
                       </CardContent>
                     </Card>
 
-                    <Card 
+                    <Card
                       className="glass-panel border-accent/30 cursor-pointer hover:border-accent/50 transition-all hover:scale-[1.02]"
                       onClick={() => setSelectedRole('candidate')}
                     >
@@ -231,9 +231,9 @@ export default function Landing() {
                   >
                     <Card className="glass-panel glow-border">
                       <CardHeader>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={handleBack}
                           className="w-fit -ml-2 mb-2"
                         >
@@ -254,7 +254,7 @@ export default function Landing() {
                             <TabsTrigger value="login">Login</TabsTrigger>
                             <TabsTrigger value="signup">Sign Up</TabsTrigger>
                           </TabsList>
-                          
+
                           <form onSubmit={handleAuth} className="space-y-4">
                             <AnimatePresence mode="wait">
                               {authMode === 'signup' && (
@@ -274,7 +274,7 @@ export default function Landing() {
                                 </motion.div>
                               )}
                             </AnimatePresence>
-                            
+
                             <div>
                               <Label htmlFor="email">Email</Label>
                               <Input
@@ -286,7 +286,7 @@ export default function Landing() {
                                 className="mt-1"
                               />
                             </div>
-                            
+
                             <div>
                               <Label htmlFor="password">Password</Label>
                               <Input
@@ -298,7 +298,7 @@ export default function Landing() {
                                 className="mt-1"
                               />
                             </div>
-                            
+
                             <Button type="submit" className="w-full" disabled={isLoading}>
                               {isLoading ? (
                                 <span className="flex items-center gap-2">
@@ -327,9 +327,9 @@ export default function Landing() {
                   >
                     <Card className="glass-panel border-accent/30">
                       <CardHeader>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={handleBack}
                           className="w-fit -ml-2 mb-2"
                         >
@@ -356,7 +356,7 @@ export default function Landing() {
                               className="mt-1"
                             />
                           </div>
-                          
+
                           <div>
                             <Label htmlFor="sessionId">Session ID</Label>
                             <div className="relative mt-1">
@@ -373,10 +373,10 @@ export default function Landing() {
                               Ask your interviewer for the session ID to join
                             </p>
                           </div>
-                          
-                          <Button 
-                            type="submit" 
-                            variant="outline" 
+
+                          <Button
+                            type="submit"
+                            variant="outline"
                             className="w-full border-accent/50 hover:bg-accent hover:text-accent-foreground"
                             disabled={isJoining}
                           >
@@ -404,7 +404,7 @@ export default function Landing() {
 
         {/* Footer */}
         <footer className="container mx-auto px-6 py-8 text-center text-sm text-muted-foreground">
-          <p>© 2024 DevInterview.io — Built for technical excellence</p>
+          <p>© {new Date().getFullYear()} DevInterview.io — Built for technical excellence</p>
         </footer>
       </div>
     </div>

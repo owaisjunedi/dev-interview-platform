@@ -41,6 +41,9 @@ A real-time collaborative coding interview platform.
     ```bash
     cd client
     ```
+    > **Note**: This project includes a `.nvmrc` file specifying the recommended Node.js version. If you use `nvm`, you can run `nvm use` to switch to the correct version.
+    > The `package-lock.json` ensures dependency consistency across environments.
+
 2.  Install dependencies:
     ```bash
     npm install

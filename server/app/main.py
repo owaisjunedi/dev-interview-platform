@@ -53,6 +53,9 @@ class Session(BaseModel):
     language: str
     notes: Optional[str] = None
     startTime: Optional[str] = None
+    code: Optional[str] = None
+    output: Optional[str] = None
+    question: Optional[dict] = None
 
 class ExecuteRequest(BaseModel):
     code: str
@@ -63,7 +66,36 @@ class ExecuteResponse(BaseModel):
     error: Optional[str] = None
 
 # --- Mock Database ---
-users_db: Dict[str, dict] = {}  # email -> user_dict
+users_db: Dict[str, dict] = {
+    "interviewer@example.com": {
+        "id": "user-1",
+        "email": "interviewer@example.com",
+        "password": "password123",
+        "name": "Alice Interviewer",
+        "role": "interviewer"
+    },
+    "tech.lead@example.com": {
+        "id": "user-2",
+        "email": "tech.lead@example.com",
+        "password": "securepass",
+        "name": "Bob Lead",
+        "role": "interviewer"
+    },
+    "candidate@example.com": {
+        "id": "user-3",
+        "email": "candidate@example.com",
+        "password": "candidate123",
+        "name": "Charlie Candidate",
+        "role": "candidate"
+    },
+    "junior@example.com": {
+        "id": "user-4",
+        "email": "junior@example.com",
+        "password": "juniorpass",
+        "name": "Dave Junior",
+        "role": "candidate"
+    }
+}  # email -> user_dict
 sessions_db: Dict[str, Session] = {}
 
 # --- Socket.IO Setup ---
@@ -142,7 +174,9 @@ def create_session(session_data: SessionCreate):
         date=datetime.datetime.now().isoformat(),
         duration=0,
         status="scheduled",
-        language=session_data.language
+        language=session_data.language,
+        code="",
+        output=""
     )
     sessions_db[session_id] = new_session
     return new_session
@@ -289,11 +323,17 @@ async def join_room(sid, data):
     if room_id in sessions_db:
         session = sessions_db[room_id]
         if session.startTime is None:
-            session.startTime = datetime.datetime.now().isoformat()
+            session.startTime = (datetime.datetime.utcnow()).isoformat() + 'Z'
             # Broadcast session update or just let clients fetch it?
             # Better to emit an event so clients update timer immediately
             await sio.emit('session_updated', session.dict(), room=room_id)
     
+    await sio.emit('code_change', {'code': session.code, 'language': session.language}, room=sid)
+    if session.question:
+        await sio.emit('custom_question', {'question': session.question}, room=sid)
+    if session.output:
+        await sio.emit('execution_result', {'output': session.output}, room=sid)
+
     # Broadcast updated user list to EVERYONE in the room
     users_list = list(room_users[room_id].values())
     await sio.emit('room_users', {'users': users_list}, room=room_id)
@@ -325,7 +365,12 @@ async def leave_room(sid, data):
 async def code_change(sid, data):
     # Broadcast code to everyone else in the room
     # data = {roomId: "...", code: "...", language: "..."}
-    await sio.emit('code_change', data, room=data['roomId'], skip_sid=sid)
+    room_id = data['roomId']
+    if room_id in sessions_db:
+        sessions_db[room_id].code = data['code']
+        sessions_db[room_id].language = data['language']
+        
+    await sio.emit('code_change', data, room=room_id, skip_sid=sid)
 
 @sio.event
 async def cursor_move(sid, data):
@@ -338,11 +383,19 @@ async def whiteboard_update(sid, data):
 @sio.event
 async def custom_question(sid, data):
     # data = {roomId: "...", question: {...}}
-    await sio.emit('custom_question', data, room=data['roomId'])
+    room_id = data['roomId']
+    if room_id in sessions_db:
+        sessions_db[room_id].question = data['question']
+        
+    await sio.emit('custom_question', data, room=room_id)
 
 @sio.event
 async def execution_result(sid, data):
     # data = {roomId: "...", output: "...", error: "..."}
+    room_id = data['roomId']
+    if room_id in sessions_db:
+        sessions_db[room_id].output = data.get('output') or data.get('error')
+        
     await sio.emit('execution_result', data, room=data['roomId'])
 
 # Wrap FastAPI app with Socket.IO

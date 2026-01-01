@@ -34,6 +34,21 @@ export function useSocket({ sessionId, userId, userName, role, onCodeChange, onW
   const [isConnected, setIsConnected] = useState(false);
   const [connectedUsers, setConnectedUsers] = useState<any[]>([]);
 
+  // Use refs for callbacks to avoid re-connecting socket when they change
+  const onCodeChangeRef = useRef(onCodeChange);
+  const onWhiteboardUpdateRef = useRef(onWhiteboardUpdate);
+  const onCustomQuestionRef = useRef(onCustomQuestion);
+  const onExecutionResultRef = useRef(onExecutionResult);
+  const onSessionUpdatedRef = useRef(onSessionUpdated);
+
+  useEffect(() => {
+    onCodeChangeRef.current = onCodeChange;
+    onWhiteboardUpdateRef.current = onWhiteboardUpdate;
+    onCustomQuestionRef.current = onCustomQuestion;
+    onExecutionResultRef.current = onExecutionResult;
+    onSessionUpdatedRef.current = onSessionUpdated;
+  }, [onCodeChange, onWhiteboardUpdate, onCustomQuestion, onExecutionResult, onSessionUpdated]);
+
   useEffect(() => {
     if (!sessionId) return;
 
@@ -60,17 +75,10 @@ export function useSocket({ sessionId, userId, userName, role, onCodeChange, onW
 
     function onUserJoined(data: { user: ConnectedUser }) {
       console.log('[Socket] User joined:', data);
-      // We rely on room_users for the list, but we can keep this for notifications if needed
-      // setConnectedUsers(prev => {
-      //   if (prev.find(u => u.id === data.user.id)) return prev;
-      //   return [...prev, data.user];
-      // });
     }
 
     function onUserLeft(data: { userId: string }) {
       console.log('[Socket] User left:', data);
-      // We rely on room_users for the list
-      // setConnectedUsers(prev => prev.filter(u => u.id !== data.userId));
     }
 
     function onRoomUsers(data: { users: ConnectedUser[] }) {
@@ -79,24 +87,24 @@ export function useSocket({ sessionId, userId, userName, role, onCodeChange, onW
     }
 
     function onCodeUpdate(data: { code: string, language: string }) {
-      if (onCodeChange) onCodeChange(data.code, data.language);
+      if (onCodeChangeRef.current) onCodeChangeRef.current(data.code, data.language);
     }
 
     function onWhiteboardUpdateEvent(data: any) {
-      if (onWhiteboardUpdate) onWhiteboardUpdate(data);
+      if (onWhiteboardUpdateRef.current) onWhiteboardUpdateRef.current(data);
     }
 
     function onCustomQuestionEvent(data: any) {
-      if (onCustomQuestion) onCustomQuestion(data);
+      if (onCustomQuestionRef.current) onCustomQuestionRef.current(data);
     }
 
     function onExecutionResultEvent(data: any) {
-      if (onExecutionResult) onExecutionResult(data);
+      if (onExecutionResultRef.current) onExecutionResultRef.current(data);
     }
 
     const onSessionUpdatedEvent = (data: any) => {
-      if (onSessionUpdated) {
-        onSessionUpdated(data);
+      if (onSessionUpdatedRef.current) {
+        onSessionUpdatedRef.current(data);
       }
     };
 
@@ -132,10 +140,10 @@ export function useSocket({ sessionId, userId, userName, role, onCodeChange, onW
 
       // Only leave room, don't disconnect socket to keep it alive for other components if needed
       // But for this app, we can disconnect to be safe and clean
-      // socket?.emit('leave_room', { roomId: sessionId, userId });
-      // socket?.disconnect();
+      socket?.emit('leave_room', { roomId: sessionId, userId });
+      socket?.disconnect();
     };
-  }, [sessionId, userId, userName, role, onCodeChange, onWhiteboardUpdate, onCustomQuestion, onExecutionResult, onSessionUpdated]);
+  }, [sessionId, userId, userName, role]);
 
   const emit = useCallback((type: string, payload: unknown) => {
     if (!socket?.connected) return;
