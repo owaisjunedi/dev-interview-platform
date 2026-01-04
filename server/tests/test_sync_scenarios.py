@@ -5,12 +5,10 @@ import datetime
 from httpx import AsyncClient, ASGITransport
 from app.main import app
 
-BASE_URL = "http://localhost:8000"
-
 @pytest.mark.asyncio
-async def test_sync_and_persistence():
+async def test_sync_and_persistence(server):
     # 1. Create Session
-    async with AsyncClient(base_url=BASE_URL) as ac:
+    async with AsyncClient(base_url=server) as ac:
         res = await ac.post("/sessions", json={
             "candidateName": "Test Candidate",
             "candidateEmail": "test@example.com",
@@ -31,7 +29,7 @@ async def test_sync_and_persistence():
         if not future_session_update.done():
             future_session_update.set_result(data)
 
-    await sio_a.connect(BASE_URL, socketio_path='/socket.io')
+    await sio_a.connect(server, socketio_path='/socket.io')
     await sio_a.emit('join_room', {
         'roomId': session_id,
         'user': {'id': 'user_a', 'name': 'Interviewer', 'role': 'interviewer'}
@@ -67,7 +65,7 @@ async def test_sync_and_persistence():
         if not future_code_sync.done():
             future_code_sync.set_result(data)
             
-    await sio_b.connect(BASE_URL, socketio_path='/socket.io')
+    await sio_b.connect(server, socketio_path='/socket.io')
     await sio_b.emit('join_room', {
         'roomId': session_id,
         'user': {'id': 'user_b', 'name': 'Candidate', 'role': 'candidate'}
@@ -80,9 +78,9 @@ async def test_sync_and_persistence():
     await sio_b.disconnect()
 
 @pytest.mark.asyncio
-async def test_user_presence():
+async def test_user_presence(server):
     # 1. Create Session
-    async with AsyncClient(base_url=BASE_URL) as ac:
+    async with AsyncClient(base_url=server) as ac:
         res = await ac.post("/sessions", json={
             "candidateName": "Test Candidate",
             "candidateEmail": "test@example.com",
@@ -102,14 +100,14 @@ async def test_user_presence():
             future_users_b.set_result(data)
 
     # A joins
-    await sio_a.connect(BASE_URL, socketio_path='/socket.io')
+    await sio_a.connect(server, socketio_path='/socket.io')
     await sio_a.emit('join_room', {
         'roomId': session_id,
         'user': {'id': 'user_a', 'name': 'Interviewer', 'role': 'interviewer'}
     })
     
     # B joins
-    await sio_b.connect(BASE_URL, socketio_path='/socket.io')
+    await sio_b.connect(server, socketio_path='/socket.io')
     await sio_b.emit('join_room', {
         'roomId': session_id,
         'user': {'id': 'user_b', 'name': 'Candidate', 'role': 'candidate'}
@@ -123,7 +121,7 @@ async def test_user_presence():
     future_users_b_leave = asyncio.Future()
     @sio_b.on('room_users')
     async def on_room_users_b_leave(data):
-        if not future_users_b_leave.done():
+        if len(data['users']) == 1 and not future_users_b_leave.done():
             future_users_b_leave.set_result(data)
             
     await sio_a.emit('leave_room', {'roomId': session_id, 'userId': 'user_a'})
@@ -137,9 +135,9 @@ async def test_user_presence():
     await sio_b.disconnect()
 
 @pytest.mark.asyncio
-async def test_whiteboard_sync():
+async def test_whiteboard_sync(server):
     # 1. Create Session
-    async with AsyncClient(base_url=BASE_URL) as ac:
+    async with AsyncClient(base_url=server) as ac:
         res = await ac.post("/sessions", json={
             "candidateName": "Test Candidate",
             "candidateEmail": "test@example.com",
@@ -159,13 +157,13 @@ async def test_whiteboard_sync():
             future_wb_update.set_result(data)
 
     # Connect both
-    await sio_a.connect(BASE_URL, socketio_path='/socket.io')
+    await sio_a.connect(server, socketio_path='/socket.io')
     await sio_a.emit('join_room', {
         'roomId': session_id,
         'user': {'id': 'user_a', 'name': 'Interviewer', 'role': 'interviewer'}
     })
     
-    await sio_b.connect(BASE_URL, socketio_path='/socket.io')
+    await sio_b.connect(server, socketio_path='/socket.io')
     await sio_b.emit('join_room', {
         'roomId': session_id,
         'user': {'id': 'user_b', 'name': 'Candidate', 'role': 'candidate'}
