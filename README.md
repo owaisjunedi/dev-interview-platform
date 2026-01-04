@@ -2,7 +2,7 @@
 
 A production-ready, real-time collaborative coding interview platform built with modern web technologies. Conduct technical interviews with live code execution, collaborative whiteboard, and synchronized timers.
 
-[![CI/CD Pipeline](https://github.com/YOUR_USERNAME/dev-interview-platform/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/YOUR_USERNAME/dev-interview-platform/actions)
+[![CI/CD Pipeline](https://github.com/owaisjunedi/dev-interview-platform/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/owaisjunedi/dev-interview-platform/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## 📋 Table of Contents
@@ -178,7 +178,7 @@ This method runs both frontend and backend concurrently from the root directory.
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/dev-interview-platform.git
+   git clone https://github.com/owaisjunedi/dev-interview-platform.git
    cd dev-interview-platform
    ```
 
@@ -754,7 +754,7 @@ docker-compose build --no-cache
 ### Getting Help
 
 1. Check [AGENT.md](AGENT.md) for detailed technical guide
-2. Review [GitHub Issues](https://github.com/YOUR_USERNAME/dev-interview-platform/issues)
+2. Review [GitHub Issues](https://github.com/owaisjunedi/dev-interview-platform/issues)
 3. Check server logs: `docker-compose logs -f`
 4. Enable verbose logging in backend
 
@@ -801,7 +801,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 For questions or issues:
 - 📧 Email: support@devinterview.io
-- 💬 GitHub Issues: [Create an issue](https://github.com/YOUR_USERNAME/dev-interview-platform/issues)
+- 💬 GitHub Issues: [Create an issue](https://github.com/owaisjunedi/dev-interview-platform/issues)
 - 📖 Documentation: [AGENT.md](AGENT.md)
 
 ---

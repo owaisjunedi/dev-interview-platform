@@ -36,11 +36,6 @@ async def test_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
-@pytest.fixture(scope="session")
-def event_loop():
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
 
 # Override the dependency
 @pytest.fixture(autouse=True)
