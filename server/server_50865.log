@@ -1,0 +1,158 @@
+INFO:     Started server process [99735]
+INFO:     Waiting for application startup.
+2026-01-04 04:45:13,669 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-04 04:45:13,670 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("users")
+2026-01-04 04:45:13,670 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-04 04:45:13,670 INFO sqlalchemy.engine.Engine PRAGMA temp.table_info("users")
+2026-01-04 04:45:13,671 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-04 04:45:13,671 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("sessions")
+2026-01-04 04:45:13,671 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-04 04:45:13,672 INFO sqlalchemy.engine.Engine PRAGMA temp.table_info("sessions")
+2026-01-04 04:45:13,672 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-01-04 04:45:13,673 INFO sqlalchemy.engine.Engine 
+CREATE TABLE users (
+	id VARCHAR NOT NULL, 
+	email VARCHAR, 
+	password VARCHAR, 
+	name VARCHAR, 
+	role VARCHAR, 
+	PRIMARY KEY (id)
+)
+
+
+2026-01-04 04:45:13,673 INFO sqlalchemy.engine.Engine [no key 0.00012s] ()
+2026-01-04 04:45:13,867 INFO sqlalchemy.engine.Engine CREATE INDEX ix_users_id ON users (id)
+2026-01-04 04:45:13,867 INFO sqlalchemy.engine.Engine [no key 0.00015s] ()
+2026-01-04 04:45:13,872 INFO sqlalchemy.engine.Engine CREATE UNIQUE INDEX ix_users_email ON users (email)
+2026-01-04 04:45:13,872 INFO sqlalchemy.engine.Engine [no key 0.00013s] ()
+2026-01-04 04:45:13,876 INFO sqlalchemy.engine.Engine 
+CREATE TABLE sessions (
+	id VARCHAR NOT NULL, 
+	candidate_name VARCHAR, 
+	candidate_email VARCHAR, 
+	date VARCHAR, 
+	duration INTEGER, 
+	score INTEGER, 
+	status VARCHAR, 
+	language VARCHAR, 
+	notes TEXT, 
+	start_time VARCHAR, 
+	code TEXT, 
+	output TEXT, 
+	question JSON, 
+	server_time VARCHAR, 
+	whiteboard JSON, 
+	PRIMARY KEY (id)
+)
+
+
+2026-01-04 04:45:13,876 INFO sqlalchemy.engine.Engine [no key 0.00010s] ()
+2026-01-04 04:45:13,881 INFO sqlalchemy.engine.Engine CREATE INDEX ix_sessions_id ON sessions (id)
+2026-01-04 04:45:13,881 INFO sqlalchemy.engine.Engine [no key 0.00011s] ()
+2026-01-04 04:45:13,885 INFO sqlalchemy.engine.Engine COMMIT
+2026-01-04 04:45:13,886 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-04 04:45:13,889 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.password, users.name, users.role 
+FROM users
+2026-01-04 04:45:13,889 INFO sqlalchemy.engine.Engine [generated in 0.00014s] ()
+Seeding mock users...
+2026-01-04 04:45:13,892 INFO sqlalchemy.engine.Engine INSERT INTO users (id, email, password, name, role) VALUES (?, ?, ?, ?, ?)
+2026-01-04 04:45:13,892 INFO sqlalchemy.engine.Engine [generated in 0.00017s] [('user-1', 'interviewer@example.com', 'password123', 'Alice Interviewer', 'interviewer'), ('user-2', 'tech.lead@example.com', 'securepass', 'Bob Lead', 'interviewer'), ('user-3', 'candidate@example.com', 'candidate123', 'Charlie Candidate', 'candidate'), ('user-4', 'junior@example.com', 'juniorpass', 'Dave Junior', 'candidate')]
+2026-01-04 04:45:13,892 INFO sqlalchemy.engine.Engine COMMIT
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:50865 (Press CTRL+C to quit)
+Seeding complete.
+INFO:     127.0.0.1:43692 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43706 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43708 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43720 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43736 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43744 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43758 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43770 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43774 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43782 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43798 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43814 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43830 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43844 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43858 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43866 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43868 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43870 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43876 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43884 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43888 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43900 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43902 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43916 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43932 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43948 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43952 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43954 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43970 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43976 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43986 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43996 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:44008 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:44024 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38190 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38200 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38214 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38220 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38226 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38234 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38248 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38258 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38260 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38272 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38278 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38284 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38288 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38298 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38312 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38314 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38316 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38318 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38322 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38330 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38342 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38354 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38360 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38364 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38372 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38388 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38394 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38406 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38412 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38428 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38444 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38460 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38470 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38482 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38496 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38502 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38518 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38534 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38544 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38558 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38564 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38574 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38580 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38586 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52188 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52200 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52204 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52214 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52218 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52222 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52230 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52240 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52256 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52266 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52280 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52288 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52300 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52306 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52318 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52334 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52342 - "GET /health HTTP/1.1" 404 Not Found

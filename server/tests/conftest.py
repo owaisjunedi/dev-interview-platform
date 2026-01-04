@@ -65,6 +65,8 @@ async def server():
     import time
     import socket
     import os
+    import signal
+    import sys
     from httpx import AsyncClient
 
     # Find a free port
@@ -73,53 +75,91 @@ async def server():
     port = sock.getsockname()[1]
     sock.close()
 
-    # Use the same database for the subprocess
-    # Since we are using in-memory SQLite, this won't work across processes!
-    # We should use a temporary file-based database for these tests.
-    test_db_file = "test_sync.db"
+    # Use a temporary file-based database for these tests.
+    test_db_file = f"test_sync_{port}.db"
     if os.path.exists(test_db_file):
         os.remove(test_db_file)
     
     db_url = f"sqlite+aiosqlite:///./{test_db_file}"
     
+    # Use sys.executable to ensure we use the same environment
     cmd = [
-        "uv", "run", "uvicorn", "app.main:app",
+        sys.executable, "-m", "uvicorn", "app.main:app",
         "--host", "127.0.0.1",
         "--port", str(port),
-        "--log-level", "error"
+        "--log-level", "info"
     ]
     
     env = os.environ.copy()
     env["PYTHONPATH"] = "."
     env["DATABASE_URL"] = db_url
     
-    process = subprocess.Popen(cmd, env=env, cwd=os.getcwd())
+    # Redirect output to a file to avoid hanging GitHub Actions
+    log_file = f"server_{port}.log"
+    with open(log_file, "w") as f:
+        # Start in a new process group
+        process = subprocess.Popen(
+            cmd, 
+            env=env, 
+            cwd=os.getcwd(),
+            start_new_session=True,
+            stdout=f,
+            stderr=f
+        )
     
     base_url = f"http://127.0.0.1:{port}"
     
     # Wait for server to be ready
-    max_retries = 50
-    for _ in range(max_retries):
+    max_retries = 100 # 20 seconds
+    server_ready = False
+    for i in range(max_retries):
         try:
             async with AsyncClient() as client:
                 res = await client.get(f"{base_url}/health")
                 if res.status_code == 200:
+                    server_ready = True
                     break
         except Exception:
             pass
+        
+        # Check if process died
+        if process.poll() is not None:
+            break
+            
         await asyncio.sleep(0.2)
     
-    yield base_url
-    
-    process.terminate()
-    try:
-        process.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        process.kill()
-    
-    if os.path.exists(test_db_file):
+    if not server_ready:
+        if os.path.exists(log_file):
+            with open(log_file, "r") as f:
+                print(f"\n[Test Server] Startup failed. Logs:\n{f.read()}")
         try:
-            os.remove(test_db_file)
+            os.killpg(os.getpgid(process.pid), signal.SIGKILL)
         except:
             pass
+        raise RuntimeError(f"Test server failed to start on {base_url}")
 
+    yield base_url
+    
+    # Shutdown
+    try:
+        os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+        # Give it a moment to shut down gracefully
+        for _ in range(50):
+            if process.poll() is not None:
+                break
+            await asyncio.sleep(0.1)
+        
+        if process.poll() is None:
+            os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+    except:
+        pass
+    
+    # Cleanup files
+    for file in [test_db_file, log_file]:
+        if os.path.exists(file):
+            for _ in range(5):
+                try:
+                    os.remove(file)
+                    break
+                except:
+                    await asyncio.sleep(0.5)

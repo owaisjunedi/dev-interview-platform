@@ -137,6 +137,10 @@ sio_app = socketio.ASGIApp(sio)
 
 fastapi_app = FastAPI()
 
+@fastapi_app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
 @fastapi_app.on_event("startup")
 async def startup():
     async with engine.begin() as conn:

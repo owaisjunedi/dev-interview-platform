@@ -78,6 +78,12 @@ Finally, we deployed to Render and set up GitHub Actions.
 - **The Fix**: We encountered a `psycopg2` error on Render.
 - **Prompt Example**: *"Render is failing with 'ModuleNotFoundError: No module named psycopg2'. I am using asyncpg. Update the database connection logic to handle Render's postgres:// URL and convert it to the async-compatible postgresql+asyncpg:// format."*
 
+### Phase 7: CI/CD Optimization (The "Hang" Fix)
+We noticed the CI/CD pipeline was hanging even after tests passed.
+- **The Challenge**: Background processes (like our test server) can keep a CI runner alive if not cleaned up properly.
+- **The Solution**: We implemented **Process Group** termination in our test fixtures to ensure every background process is killed once the tests are done.
+- **Prompt Example**: *"The CI/CD pipeline is hanging indefinitely after tests pass. Update the server fixture in conftest.py to use process groups and os.killpg to ensure the background uvicorn process is fully terminated."*
+
 ---
 
 ## 🎓 Learning for Students: Tips for Success
