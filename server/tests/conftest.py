@@ -62,11 +62,10 @@ def client():
 async def server():
     """Starts a real uvicorn server for Socket.IO tests using subprocess"""
     import subprocess
-    import time
     import socket
     import os
-    import signal
     import sys
+    import atexit
     from httpx import AsyncClient
 
     # Find a free port
@@ -82,35 +81,50 @@ async def server():
     
     db_url = f"sqlite+aiosqlite:///./{test_db_file}"
     
-    # Use sys.executable to ensure we use the same environment
     cmd = [
         sys.executable, "-m", "uvicorn", "app.main:app",
         "--host", "127.0.0.1",
         "--port", str(port),
-        "--log-level", "info"
+        "--log-level", "error"
     ]
     
     env = os.environ.copy()
     env["PYTHONPATH"] = "."
     env["DATABASE_URL"] = db_url
     
-    # Redirect output to a file to avoid hanging GitHub Actions
-    log_file = f"server_{port}.log"
-    with open(log_file, "w") as f:
-        # Start in a new process group
-        process = subprocess.Popen(
-            cmd, 
-            env=env, 
-            cwd=os.getcwd(),
-            start_new_session=True,
-            stdout=f,
-            stderr=f
-        )
+    # Start server WITHOUT start_new_session to avoid orphaned processes
+    process = subprocess.Popen(
+        cmd, 
+        env=env, 
+        cwd=os.getcwd(),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+    
+    # Register cleanup handler to GUARANTEE termination
+    def cleanup():
+        try:
+            process.terminate()
+            process.wait(timeout=2)
+        except:
+            try:
+                process.kill()
+            except:
+                pass
+        # Cleanup files
+        for file in [test_db_file]:
+            if os.path.exists(file):
+                try:
+                    os.remove(file)
+                except:
+                    pass
+    
+    atexit.register(cleanup)
     
     base_url = f"http://127.0.0.1:{port}"
     
     # Wait for server to be ready
-    max_retries = 100 # 20 seconds
+    max_retries = 100
     server_ready = False
     for i in range(max_retries):
         try:
@@ -122,44 +136,17 @@ async def server():
         except Exception:
             pass
         
-        # Check if process died
         if process.poll() is not None:
             break
             
         await asyncio.sleep(0.2)
     
     if not server_ready:
-        if os.path.exists(log_file):
-            with open(log_file, "r") as f:
-                print(f"\n[Test Server] Startup failed. Logs:\n{f.read()}")
-        try:
-            os.killpg(os.getpgid(process.pid), signal.SIGKILL)
-        except:
-            pass
+        cleanup()
         raise RuntimeError(f"Test server failed to start on {base_url}")
 
     yield base_url
     
-    # Shutdown
-    try:
-        os.killpg(os.getpgid(process.pid), signal.SIGTERM)
-        # Give it a moment to shut down gracefully
-        for _ in range(50):
-            if process.poll() is not None:
-                break
-            await asyncio.sleep(0.1)
-        
-        if process.poll() is None:
-            os.killpg(os.getpgid(process.pid), signal.SIGKILL)
-    except:
-        pass
-    
-    # Cleanup files
-    for file in [test_db_file, log_file]:
-        if os.path.exists(file):
-            for _ in range(5):
-                try:
-                    os.remove(file)
-                    break
-                except:
-                    await asyncio.sleep(0.5)
+    # Explicit cleanup
+    cleanup()
+    atexit.unregister(cleanup)
