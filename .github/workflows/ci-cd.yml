@@ -7,8 +7,10 @@ on:
     branches: [ main, master ]
 
 jobs:
+  # Run tests in parallel for speed - each job gets its own isolated container
   frontend-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Set up Node.js
@@ -24,13 +26,14 @@ jobs:
 
   backend-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-          cache-dependency-path: server/uv.lock
+          cache-dependency-glob: server/uv.lock
       - name: Set up Python
         run: uv python install
       - name: Install dependencies
@@ -38,17 +41,24 @@ jobs:
       - name: Run backend tests
         run: |
           cd server
-          PYTHONPATH=. uv run pytest
+          PYTHONPATH=. uv run pytest --timeout=300
+      # Safety cleanup - runs even if tests fail
+      - name: Cleanup processes
+        if: always()
+        run: |
+          pkill -f "pytest" || true
+          pkill -f "uvicorn" || true
 
   integration-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-          cache-dependency-path: server/uv.lock
+          cache-dependency-glob: server/uv.lock
       - name: Set up Python
         run: uv python install
       - name: Install dependencies
@@ -56,8 +66,15 @@ jobs:
       - name: Run integration tests
         run: |
           cd server
-          PYTHONPATH=. uv run pytest tests_integration
+          PYTHONPATH=. uv run pytest tests_integration --timeout=300
+      # Safety cleanup - runs even if tests fail
+      - name: Cleanup processes
+        if: always()
+        run: |
+          pkill -f "pytest" || true
+          pkill -f "uvicorn" || true
 
+  # Deploy only runs after ALL tests pass (sequential dependency)
   deploy:
     needs: [frontend-tests, backend-tests, integration-tests]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
