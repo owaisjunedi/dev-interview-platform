@@ -1,13 +1,12 @@
 services:
   - type: web
     name: dev-interview-platform
-    env: docker
+    runtime: docker
     plan: free
     region: oregon
     dockerContext: .
     dockerfilePath: ./Dockerfile
     healthCheckPath: /
-    port: 8080
     envVars:
       - key: DATABASE_URL
         fromDatabase:
