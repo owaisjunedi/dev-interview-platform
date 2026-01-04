@@ -126,13 +126,6 @@ class Session(BaseModel):
     class Config:
         from_attributes = True
 
-class ExecuteRequest(BaseModel):
-    code: str
-    language: str
-
-class ExecuteResponse(BaseModel):
-    output: str
-    error: Optional[str] = None
 
 # --- Mock Database ---
 # users_db and sessions_db removed in favor of SQLAlchemy
@@ -341,6 +334,21 @@ async def terminate_session(session_id: str, db: AsyncSession = Depends(get_db))
         raise HTTPException(status_code=404, detail="Session not found")
     
     session.status = "completed"
+    
+    # Calculate duration if start_time exists
+    if session.start_time:
+        try:
+            start = datetime.datetime.fromisoformat(session.start_time)
+            now = datetime.datetime.now(datetime.timezone.utc)
+            # Ensure start is offset-aware if it's not
+            if start.tzinfo is None:
+                start = start.replace(tzinfo=datetime.timezone.utc)
+            
+            diff = now - start
+            session.duration = max(1, int(diff.total_seconds() / 60))
+        except Exception as e:
+            print(f"Error calculating duration: {e}")
+            
     await db.commit()
     await sio.emit('session_ended', {}, room=session_id)
     return {"message": "Session terminated"}
@@ -404,62 +412,40 @@ async def save_code_endpoint(session_id: str, data: dict, db: AsyncSession = Dep
     await db.commit()
     return {"message": "Code saved successfully"}
 
-@fastapi_app.post("/execute", response_model=ExecuteResponse)
-async def execute_code(request: ExecuteRequest):
-    output = ""
-    error = None
-    
-    if request.language == "python":
-        try:
-            # Run python code in a subprocess
-            # WARNING: This is unsafe for production. Use a sandbox (e.g., Docker, gVisor)
-            proc = await asyncio.create_subprocess_exec(
-                sys.executable, "-c", request.code,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            stdout, stderr = await proc.communicate()
-            
-            output = stdout.decode()
-            error = stderr.decode()
-            
-            if proc.returncode != 0:
-                pass # Error is already captured
-                
-        except Exception as e:
-            error = str(e)
-            
-    elif request.language == "javascript":
-        try:
-             # Run node code in a subprocess
-            proc = await asyncio.create_subprocess_exec(
-                "node", "-e", request.code,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            stdout, stderr = await proc.communicate()
-            
-            output = stdout.decode()
-            error = stderr.decode()
-            
-            if proc.returncode != 0:
-                pass # Error is already captured
-        except Exception as e:
-             error = str(e) + "\nMake sure Node.js is installed."
-    else:
-        error = f"Execution for {request.language} not supported on server yet."
-
-    return {"output": output, "error": error}
 
 # --- Question Bank ---
 QUESTION_BANK = {
     "python": [
-        {"id": "1", "title": "Reverse String", "difficulty": "easy", "category": "Strings"},
-        {"id": "2", "title": "Two Sum", "difficulty": "medium", "category": "Arrays"},
+        {
+            "id": "1", 
+            "title": "Reverse String", 
+            "difficulty": "easy", 
+            "category": "Strings",
+            "description": "Write a function that reverses a string. The input string is given as an array of characters `s`.\n\nExample:\n```python\ndef reverseString(s):\n    s.reverse()\n```"
+        },
+        {
+            "id": "2", 
+            "title": "Two Sum", 
+            "difficulty": "medium", 
+            "category": "Arrays",
+            "description": "Given an array of integers `nums` and an integer `target`, return indices of the two numbers such that they add up to `target`.\n\nExample:\n```python\n# Input: nums = [2,7,11,15], target = 9\n# Output: [0,1]\n```"
+        },
     ],
     "javascript": [
-        {"id": "3", "title": "Event Loop", "difficulty": "medium", "category": "Async"},
-        {"id": "4", "title": "Closures", "difficulty": "easy", "category": "Functions"},
+        {
+            "id": "3", 
+            "title": "Event Loop", 
+            "difficulty": "medium", 
+            "category": "Async",
+            "description": "Explain the JavaScript Event Loop and how it handles asynchronous operations.\n\nExample:\n```javascript\nconsole.log('Start');\nsetTimeout(() => console.log('Timeout'), 0);\nPromise.resolve().then(() => console.log('Promise'));\nconsole.log('End');\n```"
+        },
+        {
+            "id": "4", 
+            "title": "Closures", 
+            "difficulty": "easy", 
+            "category": "Functions",
+            "description": "What is a closure in JavaScript? Provide an example.\n\nExample:\n```javascript\nfunction outer() {\n    const name = 'Mozilla';\n    function inner() {\n        console.log(name);\n    }\n    return inner;\n}\n```"
+        },
     ]
 }
 

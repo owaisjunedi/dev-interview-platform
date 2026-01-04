@@ -1,6 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import {
   Clock,
   PhoneOff,
@@ -39,15 +42,16 @@ import { useSocket } from '@/hooks/useSocket';
 import { useAuth } from '@/hooks/useAuth';
 import {
   getSession,
+  updateSession,
+  terminateSession,
+  saveCode,
   getQuestions,
   getCodeSuggestions,
-  executeCode,
-  saveCode,
-  terminateSession,
-  updateSession,
+  Session,
   Question,
   CodeSuggestion
 } from '@/services/api';
+import { codeExecutionService } from '@/services/codeExecution';
 import { toast } from 'sonner';
 
 const LANGUAGES = [
@@ -138,7 +142,9 @@ export default function InterviewRoom() {
   // Code
   const [code, setCode] = useState(DEFAULT_CODE.python);
   const [language, setLanguage] = useState('python');
+  const [isSaving, setIsSaving] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [output, setOutput] = useState('');
 
   // Left panel
@@ -395,24 +401,23 @@ export default function InterviewRoom() {
   };
 
   const handleRunCode = async () => {
-    if (!['python', 'javascript'].includes(language)) {
-      toast.error(`Execution not supported for ${language}. Only Python and JavaScript can run.`);
-      return;
-    }
+    if (!code.trim()) return;
 
     setIsExecuting(true);
-    setOutput('Running...\n');
-    setRightTab('console');
+    setOutput('Running...');
+    setRightTab('console'); // Ensure console tab is active
 
     try {
-      const result = await executeCode(code, language);
-      const outputText = result.error ? `Error:\n${result.error}` : result.output;
+      const result = await codeExecutionService.execute(code, language);
+      const outputText = result.output + (result.error ? `\nError: ${result.error}` : '');
       setOutput(outputText);
-      emitExecutionResult({ output: result.output, error: result.error });
-    } catch (error) {
-      const errorText = `Execution failed: ${error}`;
+
+      emitExecutionResult({ output: result.output, error: result.error }); // Keep existing emit
+    } catch (error: any) { // Explicitly type error as any
+      const errorText = 'Execution failed. Please try again.';
       setOutput(errorText);
-      emitExecutionResult({ error: errorText });
+      toast.error('Failed to execute code');
+      emitExecutionResult({ error: errorText }); // Keep existing emit
     } finally {
       setIsExecuting(false);
     }
@@ -440,6 +445,7 @@ export default function InterviewRoom() {
     const newQuestion: Question = {
       id: `custom-${Date.now()}`,
       title: customQuestionTitle,
+      description: customQuestionDesc,
       difficulty: 'medium', // Default
       category: 'Custom',
     };
@@ -578,6 +584,18 @@ export default function InterviewRoom() {
 
           {role === 'interviewer' && (
             <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRunCode}
+              disabled={isExecuting}
+              className="h-8 gap-1.5"
+            >
+              <Play className={`w-3.5 h-3.5 ${isExecuting ? 'animate-pulse' : ''}`} />
+              {isExecuting ? 'Running...' : 'Run Code'}
+            </Button>
+          )}
+          {role === 'interviewer' && (
+            <Button
               variant="destructive"
               size="sm"
               onClick={handleTerminate}
@@ -631,9 +649,32 @@ export default function InterviewRoom() {
                           <Badge variant="outline">{selectedQuestion.category}</Badge>
                         </div>
                         <h2 className="text-lg font-semibold">{selectedQuestion.title}</h2>
-                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                          {selectedQuestion.id.startsWith('custom') ? selectedQuestion.title : `Solve the "${selectedQuestion.title}" problem using your preferred approach. Consider edge cases and optimize for time/space complexity.`}
-                        </p>
+                        <div className="text-sm text-muted-foreground prose prose-invert max-w-none">
+                          <ReactMarkdown
+                            components={{
+                              code({ node, inline, className, children, ...props }: any) {
+                                const match = /language-(\w+)/.exec(className || '');
+                                return !inline && match ? (
+                                  <SyntaxHighlighter
+                                    style={vscDarkPlus}
+                                    language={match[1]}
+                                    PreTag="div"
+                                    className="rounded-md my-2"
+                                    {...props}
+                                  >
+                                    {String(children).replace(/\n$/, '')}
+                                  </SyntaxHighlighter>
+                                ) : (
+                                  <code className={className} {...props}>
+                                    {children}
+                                  </code>
+                                );
+                              },
+                            }}
+                          >
+                            {selectedQuestion.description || (selectedQuestion.id.startsWith('custom') ? selectedQuestion.title : `Solve the "${selectedQuestion.title}" problem using your preferred approach. Consider edge cases and optimize for time/space complexity.`)}
+                          </ReactMarkdown>
+                        </div>
                         {role === 'interviewer' && (
                           <Button
                             variant="outline"
@@ -906,7 +947,17 @@ export default function InterviewRoom() {
                                       <span>{getSuggestionIcon(s.type)}</span>
                                       <div>
                                         <p className="text-xs text-muted-foreground mb-1">Line {s.line}</p>
-                                        <p className="text-sm">{s.message}</p>
+                                        <p className="text-sm mb-2">{s.message}</p>
+                                        {s.code && (
+                                          <SyntaxHighlighter
+                                            style={vscDarkPlus}
+                                            language={language === 'javascript' ? 'javascript' : 'python'}
+                                            PreTag="div"
+                                            className="rounded-md text-[10px]"
+                                          >
+                                            {s.code}
+                                          </SyntaxHighlighter>
+                                        )}
                                       </div>
                                     </div>
                                   </CardContent>

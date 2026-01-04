@@ -60,31 +60,6 @@ def test_get_sessions(token):
         print("Get Sessions Failed:", response.text)
         sys.exit(1)
 
-def test_execute_code():
-    print("Testing Execute Code (Python)...")
-    payload = {
-        "code": "print('Hello from Python')",
-        "language": "python"
-    }
-    response = requests.post(f"{BASE_URL}/execute", json=payload)
-    if response.status_code == 200:
-        print("Execute Python Success:", response.json())
-        if response.json()["output"].strip() != "Hello from Python":
-             print("Output mismatch!")
-    else:
-        print("Execute Python Failed:", response.text)
-
-    print("Testing Execute Code (JS)...")
-    payload = {
-        "code": "console.log('Hello from JS')",
-        "language": "javascript"
-    }
-    response = requests.post(f"{BASE_URL}/execute", json=payload)
-    if response.status_code == 200:
-        print("Execute JS Success:", response.json())
-    else:
-        print("Execute JS Failed:", response.text)
-
 def main():
     try:
         # Wait for server to start
@@ -95,7 +70,6 @@ def main():
         
         session_id = test_create_session(token)
         test_get_sessions(token)
-        test_execute_code()
         
         print("\nAll API tests passed!")
     except Exception as e:

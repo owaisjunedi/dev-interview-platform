@@ -7,6 +7,7 @@ import { io } from 'socket.io-client';
 vi.mock('socket.io-client', () => ({
     io: vi.fn(() => ({
         connect: vi.fn(),
+        disconnect: vi.fn(),
         on: vi.fn(),
         off: vi.fn(),
         emit: vi.fn(),

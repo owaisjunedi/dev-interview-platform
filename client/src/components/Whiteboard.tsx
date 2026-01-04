@@ -18,7 +18,6 @@ function WhiteboardEditor({ onMount, sessionId, store }: { onMount: (editor: Edi
       <Tldraw
         onMount={handleMount}
         store={store}
-        persistenceKey={`devinterview-whiteboard-${sessionId}`}
       />
     </div>
   );

@@ -6,7 +6,7 @@ import axios from 'axios';
 // Let's use relative paths assuming Vite proxy is working for /api or similar,
 // BUT our backend is at localhost:8000 and we didn't set up /api proxy, only /ws.
 // Let's set base URL to localhost:8000 for now.
-const API_URL = 'http://localhost:8000';
+const API_URL = 'http://127.0.0.1:8000';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -68,12 +68,14 @@ export interface Question {
   title: string;
   difficulty: 'easy' | 'medium' | 'hard';
   category: string;
+  description?: string;
 }
 
 export interface CodeSuggestion {
   line: number;
   type: 'error' | 'warning' | 'info';
   message: string;
+  code?: string;
 }
 
 // Auth APIs
@@ -146,6 +148,7 @@ export async function getCodeSuggestions(code: string, language: string): Promis
         line: index + 1,
         type: 'warning',
         message: "Consider using 'let' or 'const' instead of 'var'",
+        code: line.trim(),
       });
     }
     if (line.includes('console.log')) {
@@ -153,6 +156,7 @@ export async function getCodeSuggestions(code: string, language: string): Promis
         line: index + 1,
         type: 'info',
         message: 'Remember to remove console.log before production',
+        code: line.trim(),
       });
     }
     if (line.includes('== ') && !line.includes('===')) {
@@ -160,6 +164,7 @@ export async function getCodeSuggestions(code: string, language: string): Promis
         line: index + 1,
         type: 'warning',
         message: 'Use strict equality (===) instead of loose equality (==)',
+        code: line.trim(),
       });
     }
     // Add a generic suggestion for testing if code is short
@@ -168,6 +173,7 @@ export async function getCodeSuggestions(code: string, language: string): Promis
         line: 1,
         type: 'info',
         message: 'AI Hint: Good start! Remember to handle edge cases.',
+        code: lines.slice(0, 3).join('\n'),
       });
     }
   });

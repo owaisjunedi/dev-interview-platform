@@ -4,7 +4,7 @@ A real-time collaborative coding interview platform.
 
 ## Features
 -   **Collaborative Code Editor**: Real-time code synchronization using Monaco Editor and Socket.IO.
--   **Code Execution**: Run Python and JavaScript code safely in the browser (via backend).
+-   **Code Execution**: Run Python and JavaScript code safely in the browser via WASM and native JS.
 -   **Whiteboard**: Interactive whiteboard for system design discussions.
 -   **Video/Audio**: (Placeholder for future WebRTC integration).
 -   **Question Bank**: Access top interview questions.
@@ -66,19 +66,53 @@ Run both the client and server concurrently from the root directory:
 4.  Open [http://localhost:8080](http://localhost:8080) (or the port shown in terminal).
 
 ## Testing
-### Backend Verification
-Run the verification script to test API endpoints:
-```bash
-cd server
-uv run verify_api.py
-```
 
-### Integration Tests
-Run the full session lifecycle integration tests:
-```bash
-cd server
-PYTHONPATH=. uv run pytest tests_integration
-```
+### Backend (Server)
+
+The backend uses `pytest` for unit and integration testing.
+
+1.  **Unit & Integration Tests**:
+    Run all tests in the `tests` and `tests_integration` directories:
+    ```bash
+    cd server
+    PYTHONPATH=. uv run pytest
+    ```
+
+2.  **API Verification Script**:
+    Run a manual verification script that tests the main API endpoints:
+    ```bash
+    cd server
+    # Ensure the server is running (uv run uvicorn app.main:app)
+    uv run verify_api.py
+    ```
+
+### Frontend (Client)
+
+The frontend uses `vitest` for component and hook testing.
+
+1.  **Run Tests**:
+    ```bash
+    cd client
+    npm run test
+    ```
+
+2.  **Run Tests in UI Mode**:
+    ```bash
+    cd client
+    npx vitest --ui
+    ```
+
+3.  **Coverage Report**:
+    ```bash
+    cd client
+    npm run test -- --coverage
+    ```
+
+## Development Notes
+
+- **Real-time Sync**: The platform uses Socket.IO for real-time collaboration. The state is persisted in a SQLite database (`server/test.db`).
+- **Code Execution**: Python and JavaScript code are executed client-side using WASM (Pyodide) and native JS respectively, ensuring security and performance.
+- **Whiteboard**: The whiteboard state is synced via WebSockets and persisted in the session data.
 
 ## API Documentation
 OpenAPI specification is available at `openapi.yaml`.
