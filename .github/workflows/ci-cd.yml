@@ -10,7 +10,7 @@ jobs:
   # Run tests in parallel for speed - each job gets its own isolated container
   frontend-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
       - name: Set up Node.js
@@ -26,7 +26,7 @@ jobs:
 
   backend-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
@@ -51,7 +51,7 @@ jobs:
 
   integration-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
       - name: Install uv

@@ -58,14 +58,14 @@ def client():
     with TestClient(app) as c:
         yield c
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture(scope="function")
 async def server():
     """Starts a real uvicorn server for Socket.IO tests using subprocess"""
     import subprocess
     import socket
     import os
     import sys
-    import atexit
+    import signal
     from httpx import AsyncClient
 
     # Find a free port
@@ -74,7 +74,7 @@ async def server():
     port = sock.getsockname()[1]
     sock.close()
 
-    # Use a temporary file-based database for these tests.
+    # Use a temporary file-based database for these tests
     test_db_file = f"test_sync_{port}.db"
     if os.path.exists(test_db_file):
         os.remove(test_db_file)
@@ -92,7 +92,7 @@ async def server():
     env["PYTHONPATH"] = "."
     env["DATABASE_URL"] = db_url
     
-    # Start server WITHOUT start_new_session to avoid orphaned processes
+    # Start server
     process = subprocess.Popen(
         cmd, 
         env=env, 
@@ -100,26 +100,6 @@ async def server():
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL
     )
-    
-    # Register cleanup handler to GUARANTEE termination
-    def cleanup():
-        try:
-            process.terminate()
-            process.wait(timeout=2)
-        except:
-            try:
-                process.kill()
-            except:
-                pass
-        # Cleanup files
-        for file in [test_db_file]:
-            if os.path.exists(file):
-                try:
-                    os.remove(file)
-                except:
-                    pass
-    
-    atexit.register(cleanup)
     
     base_url = f"http://127.0.0.1:{port}"
     
@@ -142,11 +122,37 @@ async def server():
         await asyncio.sleep(0.2)
     
     if not server_ready:
-        cleanup()
+        process.terminate()
+        try:
+            process.wait(timeout=2)
+        except:
+            process.kill()
         raise RuntimeError(f"Test server failed to start on {base_url}")
 
     yield base_url
     
-    # Explicit cleanup
-    cleanup()
-    atexit.unregister(cleanup)
+    # CRITICAL: Explicit cleanup - runs after EVERY test
+    try:
+        # Send SIGTERM
+        process.terminate()
+        
+        # Wait up to 2 seconds for graceful shutdown
+        try:
+            process.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            # Force kill if it doesn't respond
+            process.kill()
+            process.wait(timeout=1)
+    except Exception as e:
+        # Last resort - force kill
+        try:
+            process.kill()
+        except:
+            pass
+    
+    # Cleanup database file
+    if os.path.exists(test_db_file):
+        try:
+            os.remove(test_db_file)
+        except:
+            pass
