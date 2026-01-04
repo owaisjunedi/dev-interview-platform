@@ -6,7 +6,7 @@ import axios from 'axios';
 // Let's use relative paths assuming Vite proxy is working for /api or similar,
 // BUT our backend is at localhost:8000 and we didn't set up /api proxy, only /ws.
 // Let's set base URL to localhost:8000 for now.
-const API_URL = 'http://127.0.0.1:8000';
+const API_URL = '';
 
 const api = axios.create({
   baseURL: API_URL,
