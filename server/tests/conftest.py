@@ -2,7 +2,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-from app.database import Base, get_db
+from app.database import Base, get_db, engine as app_engine # Import app_engine
 from app.main import app, fastapi_app
 import asyncio
 from fastapi.testclient import TestClient
@@ -37,6 +37,15 @@ async def test_db():
         await conn.run_sync(Base.metadata.drop_all)
 
 
+# --- Cleanup Fixture to prevent CI Hangs ---
+@pytest_asyncio.fixture(scope="function", autouse=True)
+async def cleanup_engines():
+    yield
+    # Dispose both engines after every test function to ensure clean loop shutdown
+    await engine.dispose()
+    await app_engine.dispose()
+
+
 # Override the dependency
 @pytest.fixture(autouse=True)
 def override_dependency(test_db):
@@ -60,7 +69,7 @@ async def server():
     import socket
     import os
     import sys
-    import signal
+    # import signal
     from httpx import AsyncClient
 
     # Find a free port

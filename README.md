@@ -483,8 +483,8 @@ This project includes a `render.yaml` Blueprint for one-click deployment.
      - Connect database to service
 
 4. **Access Your Application**
-   - URL: `https://your-app-name.onrender.com`
-   - Health check: `https://your-app-name.onrender.com/health`
+   - URL: `https://dev-interview-platform-25.onrender.com`
+   - Health check: `https://dev-interview-platform-25.onrender.com/health`
 
 #### Automatic Deployments (CI/CD)
 

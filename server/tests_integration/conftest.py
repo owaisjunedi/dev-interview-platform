@@ -2,7 +2,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-from app.database import Base, get_db
+from app.database import Base, get_db, engine as app_engine # Import app_engine
 from app.main import fastapi_app as app
 import asyncio
 from httpx import AsyncClient, ASGITransport
@@ -35,6 +35,15 @@ async def test_db():
     
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
+
+
+# --- Cleanup Fixture ---
+@pytest_asyncio.fixture(scope="function", autouse=True)
+async def cleanup_engines():
+    yield
+    # Dispose both engines to close connection pools
+    await engine.dispose()
+    await app_engine.dispose()
 
 
 # Override the dependency
